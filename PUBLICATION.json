@@ -1,0 +1,27 @@
+{
+  "release": "0.1.0-dev1",
+  "base_addon": "0.22.0",
+  "license": "GPL-3.0-or-later",
+  "status": "development_baseline",
+  "basic_feature_areas_present": true,
+  "detailed_quality_accepted": false,
+  "new_third_party_features_implemented": false,
+  "validation": {
+    "blender": "5.2.1 LTS",
+    "component_imports": [
+      "character_state",
+      "native_control",
+      "native_controls.native",
+      "fullbody_controls",
+      "rest_workspace.session",
+      "weight_workflow.native",
+      "d_workspace.coordinator",
+      "facial_controls.session",
+      "facial_key_ui.session",
+      "local_proportion.session"
+    ],
+    "base_addon_register_unregister": true,
+    "archive_register_unregister": true,
+    "scope": "Packaging and imports only; no character quality acceptance"
+  }
+}

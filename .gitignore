@@ -1,0 +1,10 @@
+__pycache__/
+*.py[cod]
+dist/
+test-output/
+runtime/
+*.blend
+*.blend1
+*.npz
+*.log
+.env

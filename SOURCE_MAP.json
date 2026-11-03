@@ -1,0 +1,1456 @@
+{
+  "scope": "Self-authored development baseline; assets and third-party add-ons excluded",
+  "files": [
+    {
+      "file": "tools/blenderctl/inspection.py",
+      "source_sha256": "9920fefc5734d217c370aa9f418b94013295a64d12f4883e1edbcff72685f927",
+      "published_sha256": "9920fefc5734d217c370aa9f418b94013295a64d12f4883e1edbcff72685f927",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "tools/blenderctl/protocol.py",
+      "source_sha256": "27f23a8dbfe6eaa544fb7202a0118cd97c0b366703d906824f231a95f5d754af",
+      "published_sha256": "27f23a8dbfe6eaa544fb7202a0118cd97c0b366703d906824f231a95f5d754af",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d-workspace-v122/product/d_workspace/__init__.py",
+      "source_sha256": "a7e9545d5dcbf252aef7604070dd681b1e73176d9a69b5ede750e182352aafaf",
+      "published_sha256": "a7e9545d5dcbf252aef7604070dd681b1e73176d9a69b5ede750e182352aafaf",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d-workspace-v122/product/d_workspace/coordinator.py",
+      "source_sha256": "c1dac701639119fe73c04f54b572aabd2fb92e18e7bf79680d5d8a327bc14f68",
+      "published_sha256": "c1dac701639119fe73c04f54b572aabd2fb92e18e7bf79680d5d8a327bc14f68",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d-workspace-v122/product/weight_workflow/__init__.py",
+      "source_sha256": "c9468469c2c024210e2cb9506c1251787f4e8b477e17e10d03a3cebf5cb84f79",
+      "published_sha256": "c9468469c2c024210e2cb9506c1251787f4e8b477e17e10d03a3cebf5cb84f79",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d-workspace-v122/product/weight_workflow/cold.py",
+      "source_sha256": "7aef063a93c10e4c45ec2479c3977ef0075dcfee67693d205269da8114f7c0f0",
+      "published_sha256": "7aef063a93c10e4c45ec2479c3977ef0075dcfee67693d205269da8114f7c0f0",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d-workspace-v122/product/weight_workflow/contract.py",
+      "source_sha256": "2664aa750158922f84562d86f4126aa559a33d40b0ad7f4c1f580d8f3eb132ce",
+      "published_sha256": "2664aa750158922f84562d86f4126aa559a33d40b0ad7f4c1f580d8f3eb132ce",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d-workspace-v122/product/weight_workflow/native.py",
+      "source_sha256": "d9d92353bb8d5ffb94b474abb0af14c9bcc4915481fe002017218a5a9b5c8299",
+      "published_sha256": "9fbcd3165d815d5602736e1faab3c2621a387a3e0a978f8af3a7d5065413ca43",
+      "portable_path_edits": 2
+    },
+    {
+      "file": "work/hrig-d-workspace-v122/product/weight_workflow/session.py",
+      "source_sha256": "cbe32d69b5d90f67a14994523a097bc841a1d2657c50b1f15815dc1f699ec48a",
+      "published_sha256": "cbe32d69b5d90f67a14994523a097bc841a1d2657c50b1f15815dc1f699ec48a",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d-workspace-v122/product/weight_workflow/ui.py",
+      "source_sha256": "2a0b85fe79427639c0d5d5afb65836a0b04d0d22dc6739e87618ff0cea610648",
+      "published_sha256": "2a0b85fe79427639c0d5d5afb65836a0b04d0d22dc6739e87618ff0cea610648",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d3-v121/product/facial_controls/__init__.py",
+      "source_sha256": "c4eda793fbe784efbc11dea697b8498b182af209beda244b2c34b307f3402a7a",
+      "published_sha256": "c4eda793fbe784efbc11dea697b8498b182af209beda244b2c34b307f3402a7a",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d3-v121/product/facial_controls/animation_core/__init__.py",
+      "source_sha256": "ccca8195e45c45e1320593c6b7e0b636546f3552661caaf5379e6a491556d81f",
+      "published_sha256": "ccca8195e45c45e1320593c6b7e0b636546f3552661caaf5379e6a491556d81f",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d3-v121/product/facial_controls/animation_core/native.py",
+      "source_sha256": "faba06266f0132875bfede6be2ce9dcd187565bf1ffb6c6f3ca67a96b5ad14c1",
+      "published_sha256": "98c5b8e7093aa473c41688db141332a5ec6b3d598f354d2e520e9157578e27b4",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d3-v121/product/facial_controls/catalog.py",
+      "source_sha256": "b9bc261f76f1c78031623634b1cb59fdadb85dffcdc472fca6f7a59f0c68ca6c",
+      "published_sha256": "b9bc261f76f1c78031623634b1cb59fdadb85dffcdc472fca6f7a59f0c68ca6c",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d3-v121/product/facial_controls/contract.py",
+      "source_sha256": "38e38fccf492af61f0fef65c1c43327d05c7980ab6dff18576dd9a3460d2a0f5",
+      "published_sha256": "6aa985088bad6148ab68145a4ef560f5944a8a00b26e03c722574da39d94097c",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d3-v121/product/facial_controls/control_core/__init__.py",
+      "source_sha256": "42a107bb0ef5de1a4b211da155e765bcdeef1e07b3e3b7c4843a9bd282ccf080",
+      "published_sha256": "42a107bb0ef5de1a4b211da155e765bcdeef1e07b3e3b7c4843a9bd282ccf080",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d3-v121/product/facial_controls/control_core/bindings.py",
+      "source_sha256": "d46f262cc9e8f3ec7addf1d3ba2bf6e024d5ed29e6bea032a82bf8a15f6156d0",
+      "published_sha256": "3aee9fab390181154f83229b3da3790073bf0f926e1be392b455b449147ab3fd",
+      "portable_path_edits": 1
+    },
+    {
+      "file": "work/hrig-d3-v121/product/facial_controls/control_core/contract.py",
+      "source_sha256": "823b2fb759ca9545b37fb105021961ef0fa7681b5a2e82d5310e1bd66b635e04",
+      "published_sha256": "343d79d784726eb380e22a4975e1b576fd239a70967855609974fbb6d7b97149",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d3-v121/product/facial_controls/control_core/indirect_contract.py",
+      "source_sha256": "5c3f22bdf078ccb7b2ebeb6fbaf7e0418c60c140be444628a7425f8f22d1cae8",
+      "published_sha256": "7ee58538a3e08a018ea9b204037b2c1ca227780fcaf3281241cd55d011242bcd",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d3-v121/product/facial_controls/control_core/native.py",
+      "source_sha256": "fda9d81a328e492d9102b8df79f3caccdea7ccd09cce3590b6dd145b2e1aed3d",
+      "published_sha256": "c3fe8365c6997b14f09fd4e63f5b74e67f7eb3819faf2967e3521c63849edca6",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d3-v121/product/facial_controls/control_core/outputs.py",
+      "source_sha256": "46fbdc631da9e9ac04fbfdbad015e90c52eb8d7a60b2eafb403c03092478fc7b",
+      "published_sha256": "46fbdc631da9e9ac04fbfdbad015e90c52eb8d7a60b2eafb403c03092478fc7b",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d3-v121/product/facial_controls/control_core/source_contract.py",
+      "source_sha256": "b801ce647f86fba1fa341ae5262f7df8817405ca25a7331250e83252fbc5ccef",
+      "published_sha256": "b801ce647f86fba1fa341ae5262f7df8817405ca25a7331250e83252fbc5ccef",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d3-v121/product/facial_controls/key_receipts.py",
+      "source_sha256": "5b6d214561a39a7870c547c4f6717914572e66a467b50e3a4993c01f5eff2ba0",
+      "published_sha256": "5b6d214561a39a7870c547c4f6717914572e66a467b50e3a4993c01f5eff2ba0",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d3-v121/product/facial_controls/native.py",
+      "source_sha256": "f401bc7866178d6b809014be032c0f79d642b9f011dff8b89ffe0be90b6978dc",
+      "published_sha256": "f401bc7866178d6b809014be032c0f79d642b9f011dff8b89ffe0be90b6978dc",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d3-v121/product/facial_controls/profile.py",
+      "source_sha256": "1f9e3035288fcb6223d657c2c6a217835bb662c1ac4ef8c9ddf3f87e039b8e56",
+      "published_sha256": "1f9e3035288fcb6223d657c2c6a217835bb662c1ac4ef8c9ddf3f87e039b8e56",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d3-v121/product/facial_controls/session.py",
+      "source_sha256": "0c8f110a170187238a5c5e957277ca86f2601dbdfc286f715fc897fcf83b4e7e",
+      "published_sha256": "0c8f110a170187238a5c5e957277ca86f2601dbdfc286f715fc897fcf83b4e7e",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d3-v121/product/facial_controls/signatures.py",
+      "source_sha256": "c6ba2d34529ab450d8fc3f9bcf3e1e0b80687355b73b9cc7a22304c4995a7ed3",
+      "published_sha256": "c6ba2d34529ab450d8fc3f9bcf3e1e0b80687355b73b9cc7a22304c4995a7ed3",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d3-v121/product/facial_controls/ui.py",
+      "source_sha256": "9bb4768465847040533deddf9586c94d0754d7159d78ea1a3daab4f7cd17c114",
+      "published_sha256": "9bb4768465847040533deddf9586c94d0754d7159d78ea1a3daab4f7cd17c114",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d3-v121/product/facial_key_edit/__init__.py",
+      "source_sha256": "8c96e391bc73351fd924af2939fae5be6d0eb59d8902847d93a8cb666c649576",
+      "published_sha256": "8c96e391bc73351fd924af2939fae5be6d0eb59d8902847d93a8cb666c649576",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d3-v121/product/facial_key_edit/contract.py",
+      "source_sha256": "93ceb7c94f16dd2a02dbfbe16ad1f441e829a38fea7c09b34a66d6ca61092d76",
+      "published_sha256": "93ceb7c94f16dd2a02dbfbe16ad1f441e829a38fea7c09b34a66d6ca61092d76",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d3-v121/product/facial_key_edit/native.py",
+      "source_sha256": "56c0034ebdb204b0d47baea1ddba3c7c93f3b542b98d104e7f28d0d7cae073fe",
+      "published_sha256": "56c0034ebdb204b0d47baea1ddba3c7c93f3b542b98d104e7f28d0d7cae073fe",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d3-v124/product/facial_key_ui/__init__.py",
+      "source_sha256": "dd0280190d7b2834025b2dbd179f60252bec7086197aee8dd221a87e689b41d6",
+      "published_sha256": "dd0280190d7b2834025b2dbd179f60252bec7086197aee8dd221a87e689b41d6",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d3-v124/product/facial_key_ui/session.py",
+      "source_sha256": "214ad4c0fc8d4cae72de214916de79e69647df2da81c2e2e8ea64e2e227c1686",
+      "published_sha256": "214ad4c0fc8d4cae72de214916de79e69647df2da81c2e2e8ea64e2e227c1686",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d3-v124/product/facial_key_ui/ui.py",
+      "source_sha256": "a791c6ffdaa4a7b2dbd610aab7ca69efbf0d366bdcd764d3987fd7407b19c298",
+      "published_sha256": "a791c6ffdaa4a7b2dbd610aab7ca69efbf0d366bdcd764d3987fd7407b19c298",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d4-v114/product/garment_adapt/__init__.py",
+      "source_sha256": "fb688203f3d733f281910ab60ee69e1f7aed881266db6d7cecad7ca779b3b903",
+      "published_sha256": "fb688203f3d733f281910ab60ee69e1f7aed881266db6d7cecad7ca779b3b903",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d4-v114/product/garment_adapt/anatomical_fit.py",
+      "source_sha256": "1396e40e46e991259830fe33cfc807e0a902a3c11b7b7df4bc6f354cd96cc4ff",
+      "published_sha256": "1396e40e46e991259830fe33cfc807e0a902a3c11b7b7df4bc6f354cd96cc4ff",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d4-v114/product/garment_adapt/anatomical_fit_v2.py",
+      "source_sha256": "08ebc30930c006c5c02a98729e31cfe491e675dad3f4ebab9dcc9d6ef5ad76dc",
+      "published_sha256": "08ebc30930c006c5c02a98729e31cfe491e675dad3f4ebab9dcc9d6ef5ad76dc",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d4-v114/product/garment_adapt/compiled_preparation.py",
+      "source_sha256": "dea5a62667e19cc871e49f2428b18c95200018a6aac5b685025a3216d5d6529e",
+      "published_sha256": "dea5a62667e19cc871e49f2428b18c95200018a6aac5b685025a3216d5d6529e",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d4-v114/product/garment_adapt/contract.py",
+      "source_sha256": "8f27496da962685b2a4b1b9b72846700413f0def2a5bc83ef1326c1f2723d188",
+      "published_sha256": "8f27496da962685b2a4b1b9b72846700413f0def2a5bc83ef1326c1f2723d188",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d4-v114/product/garment_adapt/cross_prepare.py",
+      "source_sha256": "8e80b3e2434fb2a6990ec5540f0e33cd1ec7411442df33b02814f7781bf78a5e",
+      "published_sha256": "8e80b3e2434fb2a6990ec5540f0e33cd1ec7411442df33b02814f7781bf78a5e",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d4-v114/product/garment_adapt/cross_prepare_v2.py",
+      "source_sha256": "9da447cafcd32c99358857815a4a33f1c55e1f8f27584c97063137dbc61fc80a",
+      "published_sha256": "9da447cafcd32c99358857815a4a33f1c55e1f8f27584c97063137dbc61fc80a",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d4-v114/product/garment_adapt/cross_prepare_v3.py",
+      "source_sha256": "f95ac54429ab437ff5e9d1cb9ac4215c767a9dccb1bacc9e0749569ee97d2f23",
+      "published_sha256": "f95ac54429ab437ff5e9d1cb9ac4215c767a9dccb1bacc9e0749569ee97d2f23",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d4-v114/product/garment_adapt/cross_prepare_v4.py",
+      "source_sha256": "be19a17a105d23bbbad3d47961063350fcea39647665c01d5496de6339bfe5e1",
+      "published_sha256": "be19a17a105d23bbbad3d47961063350fcea39647665c01d5496de6339bfe5e1",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d4-v114/product/garment_adapt/cross_prepare_v5.py",
+      "source_sha256": "d29d6b1f559bea2eee6978e30bafeb4b8a6721872c1c23d461c7fcb62c06ad1d",
+      "published_sha256": "d29d6b1f559bea2eee6978e30bafeb4b8a6721872c1c23d461c7fcb62c06ad1d",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d4-v114/product/garment_adapt/fit_geometry.py",
+      "source_sha256": "234b16c81c7a7bbace72a64fed75cd5d65c2d33ed18224d819a8e7738d96eef5",
+      "published_sha256": "234b16c81c7a7bbace72a64fed75cd5d65c2d33ed18224d819a8e7738d96eef5",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d4-v114/product/garment_adapt/geometry_edit.py",
+      "source_sha256": "6942778599bece804e826e43f18cfa880f4ab81e995d33d7399154a32efbf829",
+      "published_sha256": "6942778599bece804e826e43f18cfa880f4ab81e995d33d7399154a32efbf829",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d4-v114/product/garment_adapt/native.py",
+      "source_sha256": "601e396b4b6797aa3bfcf03f8e368d46ddd1231d22696f6d835a0f550446d3d6",
+      "published_sha256": "5745443909b24ae6474686dd3e1dda85362734f9bc0c8b300214b7fa7ac4f8a3",
+      "portable_path_edits": 1
+    },
+    {
+      "file": "work/hrig-d4-v114/product/garment_adapt/preparation.py",
+      "source_sha256": "fcbe3cde2d9a84cc734b268fb276e41c9fd385a2d237dd489808369eb0c9d7d1",
+      "published_sha256": "fcbe3cde2d9a84cc734b268fb276e41c9fd385a2d237dd489808369eb0c9d7d1",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d4-v114/product/garment_adapt/preparation_v2.py",
+      "source_sha256": "00cb403fbe755b3da486b17bea2f378947ca1fe515d4d82100a90f9074c82fee",
+      "published_sha256": "00cb403fbe755b3da486b17bea2f378947ca1fe515d4d82100a90f9074c82fee",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d4-v114/product/garment_adapt/reference_contract.py",
+      "source_sha256": "a21437dc4e55443458ee960e8ae45b378b3892059b74d942604fc6c74cd0d093",
+      "published_sha256": "a21437dc4e55443458ee960e8ae45b378b3892059b74d942604fc6c74cd0d093",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-d4-v114/product/garment_adapt/session.py",
+      "source_sha256": "d3c09da1ca7246ed3a14cb99c6140f788ad58395ff90ff704cff9122df4529b8",
+      "published_sha256": "8b6326b5702ba24bf3f9ac9e117e9a9ef9e1f5ae3f250f54a79bb4e0fb8d5f32",
+      "portable_path_edits": 3
+    },
+    {
+      "file": "work/hrig-d4-v114/product/garment_adapt/study_render.py",
+      "source_sha256": "dedb37ebb77a81392d61e15ac4600c04beeffed7287ac0deb55d1edc503da88c",
+      "published_sha256": "dedb37ebb77a81392d61e15ac4600c04beeffed7287ac0deb55d1edc503da88c",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v015/addon/humanoid_rigging_probe/__init__.py",
+      "source_sha256": "84b2ea5c579f599dc1fb3e90a75355ad67e338436c4512fbac45ea6a9a7b463c",
+      "published_sha256": "84b2ea5c579f599dc1fb3e90a75355ad67e338436c4512fbac45ea6a9a7b463c",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v015/addon/humanoid_rigging_probe/bone_collections.py",
+      "source_sha256": "50476aa4a1d77cac11de6c3101dc1936789edd9e16dcdc17174d7fb07b0eed77",
+      "published_sha256": "50476aa4a1d77cac11de6c3101dc1936789edd9e16dcdc17174d7fb07b0eed77",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v015/addon/humanoid_rigging_probe/cache_contract.py",
+      "source_sha256": "192892f9c81b7519fafa8ba22cd0c7da7ca9074c9d056fc431260341e86f8728",
+      "published_sha256": "192892f9c81b7519fafa8ba22cd0c7da7ca9074c9d056fc431260341e86f8728",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v015/addon/humanoid_rigging_probe/cloth_cache.py",
+      "source_sha256": "ff084b62882ba4f4a60bb0809d1130c0ef7cb238628ad8126ba3df7bc17da2f1",
+      "published_sha256": "ff084b62882ba4f4a60bb0809d1130c0ef7cb238628ad8126ba3df7bc17da2f1",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v015/addon/humanoid_rigging_probe/cloth_quality.py",
+      "source_sha256": "3e203e06726ddd31d71640d399b8ae6ee74318d61e127c1e67905a6172529d2f",
+      "published_sha256": "3e203e06726ddd31d71640d399b8ae6ee74318d61e127c1e67905a6172529d2f",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v015/addon/humanoid_rigging_probe/collection_contract.py",
+      "source_sha256": "3f7bd337da66bca82387bd8416e893d07923c4815802394941914faeeb914ad2",
+      "published_sha256": "3f7bd337da66bca82387bd8416e893d07923c4815802394941914faeeb914ad2",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v015/addon/humanoid_rigging_probe/collector.py",
+      "source_sha256": "49f7bc6a3fdeec74195060586627289c1473e80a4f63fffe04365e4002f1be8c",
+      "published_sha256": "49f7bc6a3fdeec74195060586627289c1473e80a4f63fffe04365e4002f1be8c",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v015/addon/humanoid_rigging_probe/control_space.py",
+      "source_sha256": "282f9f96a858f73ad5fd6a77bdcb68abab275982e8931b70ae97afedce2a3874",
+      "published_sha256": "282f9f96a858f73ad5fd6a77bdcb68abab275982e8931b70ae97afedce2a3874",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v015/addon/humanoid_rigging_probe/dependencies.py",
+      "source_sha256": "c6b251a943501500a3e9254668ef3665d5976657fb862b01ea75895908fb2e50",
+      "published_sha256": "c6b251a943501500a3e9254668ef3665d5976657fb862b01ea75895908fb2e50",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v015/addon/humanoid_rigging_probe/dynamics_contract.py",
+      "source_sha256": "bb1fde70a99688dad7e2f1ae2419d631426949938a67456b22939eb6630964df",
+      "published_sha256": "bb1fde70a99688dad7e2f1ae2419d631426949938a67456b22939eb6630964df",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v015/addon/humanoid_rigging_probe/limb.py",
+      "source_sha256": "50515f7a677f01ed1b542a6fb7df2ac9a05b88f3513c240ebd0fc975c3c8098c",
+      "published_sha256": "50515f7a677f01ed1b542a6fb7df2ac9a05b88f3513c240ebd0fc975c3c8098c",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v015/addon/humanoid_rigging_probe/motion_clips.py",
+      "source_sha256": "9b41116f6cd90bf7bed823cc2a4b842a7c8d028bd8f014218ce18c8064bf894e",
+      "published_sha256": "9b41116f6cd90bf7bed823cc2a4b842a7c8d028bd8f014218ce18c8064bf894e",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v015/addon/humanoid_rigging_probe/motion_contract.py",
+      "source_sha256": "cb48ba7e1a847683fda34fe618657e5337a2829ae36972af7c2aba557036c4d7",
+      "published_sha256": "cb48ba7e1a847683fda34fe618657e5337a2829ae36972af7c2aba557036c4d7",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v015/addon/humanoid_rigging_probe/motion_derivation.py",
+      "source_sha256": "f98e1c869e0c339601751f02b093c7609c2b5c295aaab18c068ddc16d56bf5fb",
+      "published_sha256": "f98e1c869e0c339601751f02b093c7609c2b5c295aaab18c068ddc16d56bf5fb",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v015/addon/humanoid_rigging_probe/motion_derivation_contract.py",
+      "source_sha256": "9a94db036376848d68b0a124d72d366a58431a5d90d8371cdcfd955057df3f60",
+      "published_sha256": "9a94db036376848d68b0a124d72d366a58431a5d90d8371cdcfd955057df3f60",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v015/addon/humanoid_rigging_probe/persistence.py",
+      "source_sha256": "02093a8b05b4865de263143cfd638cfe89fdcb1ceb4d0146deb078bbf0586570",
+      "published_sha256": "02093a8b05b4865de263143cfd638cfe89fdcb1ceb4d0146deb078bbf0586570",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v015/addon/humanoid_rigging_probe/pose_contract.py",
+      "source_sha256": "bdb545bee24a101b75a3448bf7960d05cc3aa4b919d62f93bc330e5a6b32e948",
+      "published_sha256": "bdb545bee24a101b75a3448bf7960d05cc3aa4b919d62f93bc330e5a6b32e948",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v015/addon/humanoid_rigging_probe/pose_rotations.py",
+      "source_sha256": "33cf0c6386751cbba6431c0e60646b2c124969e56c60c4c63085db1d18e25e46",
+      "published_sha256": "33cf0c6386751cbba6431c0e60646b2c124969e56c60c4c63085db1d18e25e46",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v015/addon/humanoid_rigging_probe/style_contract.py",
+      "source_sha256": "d74379c31ba1c84e9c5e4c96532c2ee1965cb06e663bd2ba58fbe8157af5bd34",
+      "published_sha256": "d74379c31ba1c84e9c5e4c96532c2ee1965cb06e663bd2ba58fbe8157af5bd34",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v015/addon/humanoid_rigging_probe/styles.py",
+      "source_sha256": "e1c7bb8d245e8b78959c543950bada94b8ecb0f2e0ebc1bfe5a42783d197b725",
+      "published_sha256": "e1c7bb8d245e8b78959c543950bada94b8ecb0f2e0ebc1bfe5a42783d197b725",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v015/addon/humanoid_rigging_probe/ui.py",
+      "source_sha256": "58116693205d4ec695a72156c8749123306ec69e54415f77af923d8e3a92ceee",
+      "published_sha256": "58116693205d4ec695a72156c8749123306ec69e54415f77af923d8e3a92ceee",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v015/addon/humanoid_rigging_probe/weights.py",
+      "source_sha256": "74e89aad7e84828c0df1871c6c1de26553e253d12e092a9b9183cd0c57af3d8e",
+      "published_sha256": "74e89aad7e84828c0df1871c6c1de26553e253d12e092a9b9183cd0c57af3d8e",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/__init__.py",
+      "source_sha256": "79b752d8ed353c9b26e0f4ff6a2fd7bbe9e50259346d32f4e81c93f21e0bf38d",
+      "published_sha256": "79b752d8ed353c9b26e0f4ff6a2fd7bbe9e50259346d32f4e81c93f21e0bf38d",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/bone_collections.py",
+      "source_sha256": "50476aa4a1d77cac11de6c3101dc1936789edd9e16dcdc17174d7fb07b0eed77",
+      "published_sha256": "50476aa4a1d77cac11de6c3101dc1936789edd9e16dcdc17174d7fb07b0eed77",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/cache_contract.py",
+      "source_sha256": "192892f9c81b7519fafa8ba22cd0c7da7ca9074c9d056fc431260341e86f8728",
+      "published_sha256": "192892f9c81b7519fafa8ba22cd0c7da7ca9074c9d056fc431260341e86f8728",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/cloth_cache.py",
+      "source_sha256": "ff084b62882ba4f4a60bb0809d1130c0ef7cb238628ad8126ba3df7bc17da2f1",
+      "published_sha256": "ff084b62882ba4f4a60bb0809d1130c0ef7cb238628ad8126ba3df7bc17da2f1",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/cloth_quality.py",
+      "source_sha256": "3e203e06726ddd31d71640d399b8ae6ee74318d61e127c1e67905a6172529d2f",
+      "published_sha256": "3e203e06726ddd31d71640d399b8ae6ee74318d61e127c1e67905a6172529d2f",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/collection_contract.py",
+      "source_sha256": "3f7bd337da66bca82387bd8416e893d07923c4815802394941914faeeb914ad2",
+      "published_sha256": "3f7bd337da66bca82387bd8416e893d07923c4815802394941914faeeb914ad2",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/collector.py",
+      "source_sha256": "49f7bc6a3fdeec74195060586627289c1473e80a4f63fffe04365e4002f1be8c",
+      "published_sha256": "49f7bc6a3fdeec74195060586627289c1473e80a4f63fffe04365e4002f1be8c",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/control_space.py",
+      "source_sha256": "282f9f96a858f73ad5fd6a77bdcb68abab275982e8931b70ae97afedce2a3874",
+      "published_sha256": "282f9f96a858f73ad5fd6a77bdcb68abab275982e8931b70ae97afedce2a3874",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/dependencies.py",
+      "source_sha256": "c6b251a943501500a3e9254668ef3665d5976657fb862b01ea75895908fb2e50",
+      "published_sha256": "c6b251a943501500a3e9254668ef3665d5976657fb862b01ea75895908fb2e50",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/diagnostic_contract.py",
+      "source_sha256": "f37e58ecedb7cd6b8aad3669f3448f985484c91ae9259ab52c82575aacc86c4e",
+      "published_sha256": "362473b989ce2f2f729b5053bba8aaf316fcc22f817e757a682c935168fc5774",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/diagnostics.py",
+      "source_sha256": "a261707f0e877968b384ef8b0de7d3406c3f6d5ee58d8fff8ad8bc2768c7060a",
+      "published_sha256": "d563d3f1204cd05c78cbfb3edc54a9ff74860c58d3b9bb2dc9f29f4d0ffd03bb",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/dynamics_contract.py",
+      "source_sha256": "bb1fde70a99688dad7e2f1ae2419d631426949938a67456b22939eb6630964df",
+      "published_sha256": "bb1fde70a99688dad7e2f1ae2419d631426949938a67456b22939eb6630964df",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/existing_control_contract.py",
+      "source_sha256": "9abc113033e61d616588fa04529d986a68baa755e124a92a791250fe43d6fb34",
+      "published_sha256": "9abc113033e61d616588fa04529d986a68baa755e124a92a791250fe43d6fb34",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/existing_controls.py",
+      "source_sha256": "3dddd3ebcae5e07ad8a245cc4b65a6e235ae00b93d7b6702a8f471165c1f5e4c",
+      "published_sha256": "3dddd3ebcae5e07ad8a245cc4b65a6e235ae00b93d7b6702a8f471165c1f5e4c",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/front_hair_isolation.py",
+      "source_sha256": "f2bcac0c6ffdbd04175662b3722176c045a704ea976ab8ddd810e95c3f493804",
+      "published_sha256": "f2bcac0c6ffdbd04175662b3722176c045a704ea976ab8ddd810e95c3f493804",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/hair_actions.py",
+      "source_sha256": "5d2bd93eb02c6478273c44b75e1a5bce54d9d518bf01ecbeaaf64be3ac0d49e9",
+      "published_sha256": "5d2bd93eb02c6478273c44b75e1a5bce54d9d518bf01ecbeaaf64be3ac0d49e9",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/hair_controls.py",
+      "source_sha256": "8ffdbdab764cc6cee5e3711148afa3cd558483d83dcde9440acda42ef3fbd108",
+      "published_sha256": "8ffdbdab764cc6cee5e3711148afa3cd558483d83dcde9440acda42ef3fbd108",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/hair_pair_isolation.py",
+      "source_sha256": "b3b35aa45f005478ce2f2607959b892816b164d098df6c13e023b37573b36ba0",
+      "published_sha256": "b3b35aa45f005478ce2f2607959b892816b164d098df6c13e023b37573b36ba0",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/id_cost.py",
+      "source_sha256": "d45dacc99dc5af5abaa7d322ba69936be1b283ed841734c90d6a26780c76e4c4",
+      "published_sha256": "d45dacc99dc5af5abaa7d322ba69936be1b283ed841734c90d6a26780c76e4c4",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/limb.py",
+      "source_sha256": "50515f7a677f01ed1b542a6fb7df2ac9a05b88f3513c240ebd0fc975c3c8098c",
+      "published_sha256": "50515f7a677f01ed1b542a6fb7df2ac9a05b88f3513c240ebd0fc975c3c8098c",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/motion_clips.py",
+      "source_sha256": "9b41116f6cd90bf7bed823cc2a4b842a7c8d028bd8f014218ce18c8064bf894e",
+      "published_sha256": "9b41116f6cd90bf7bed823cc2a4b842a7c8d028bd8f014218ce18c8064bf894e",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/motion_contract.py",
+      "source_sha256": "cb48ba7e1a847683fda34fe618657e5337a2829ae36972af7c2aba557036c4d7",
+      "published_sha256": "cb48ba7e1a847683fda34fe618657e5337a2829ae36972af7c2aba557036c4d7",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/motion_derivation.py",
+      "source_sha256": "f98e1c869e0c339601751f02b093c7609c2b5c295aaab18c068ddc16d56bf5fb",
+      "published_sha256": "f98e1c869e0c339601751f02b093c7609c2b5c295aaab18c068ddc16d56bf5fb",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/motion_derivation_contract.py",
+      "source_sha256": "9a94db036376848d68b0a124d72d366a58431a5d90d8371cdcfd955057df3f60",
+      "published_sha256": "9a94db036376848d68b0a124d72d366a58431a5d90d8371cdcfd955057df3f60",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/persistence.py",
+      "source_sha256": "02093a8b05b4865de263143cfd638cfe89fdcb1ceb4d0146deb078bbf0586570",
+      "published_sha256": "02093a8b05b4865de263143cfd638cfe89fdcb1ceb4d0146deb078bbf0586570",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/pose_contract.py",
+      "source_sha256": "bdb545bee24a101b75a3448bf7960d05cc3aa4b919d62f93bc330e5a6b32e948",
+      "published_sha256": "bdb545bee24a101b75a3448bf7960d05cc3aa4b919d62f93bc330e5a6b32e948",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/pose_rotations.py",
+      "source_sha256": "33cf0c6386751cbba6431c0e60646b2c124969e56c60c4c63085db1d18e25e46",
+      "published_sha256": "33cf0c6386751cbba6431c0e60646b2c124969e56c60c4c63085db1d18e25e46",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/rear_hair_isolation.py",
+      "source_sha256": "350bf1efefafbebf0e356a6e1c43881c8092d1bb85c78dc305bf6b0077accc61",
+      "published_sha256": "350bf1efefafbebf0e356a6e1c43881c8092d1bb85c78dc305bf6b0077accc61",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/style_contract.py",
+      "source_sha256": "d74379c31ba1c84e9c5e4c96532c2ee1965cb06e663bd2ba58fbe8157af5bd34",
+      "published_sha256": "d74379c31ba1c84e9c5e4c96532c2ee1965cb06e663bd2ba58fbe8157af5bd34",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/styles.py",
+      "source_sha256": "e1c7bb8d245e8b78959c543950bada94b8ecb0f2e0ebc1bfe5a42783d197b725",
+      "published_sha256": "e1c7bb8d245e8b78959c543950bada94b8ecb0f2e0ebc1bfe5a42783d197b725",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/subdivision_diagnostic.py",
+      "source_sha256": "f5b6c9bc8ecae2398b95acc08015691bdcedc067455edef66bf3ac32190138d9",
+      "published_sha256": "f5b6c9bc8ecae2398b95acc08015691bdcedc067455edef66bf3ac32190138d9",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/ui.py",
+      "source_sha256": "58116693205d4ec695a72156c8749123306ec69e54415f77af923d8e3a92ceee",
+      "published_sha256": "58116693205d4ec695a72156c8749123306ec69e54415f77af923d8e3a92ceee",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/addon/humanoid_rigging_probe/weights.py",
+      "source_sha256": "74e89aad7e84828c0df1871c6c1de26553e253d12e092a9b9183cd0c57af3d8e",
+      "published_sha256": "74e89aad7e84828c0df1871c6c1de26553e253d12e092a9b9183cd0c57af3d8e",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/build_control_request.py",
+      "source_sha256": "f2cf764bebb0a93363fe3782a3e00c209b1b672acdcf1720d7a3d424a82bc749",
+      "published_sha256": "f2cf764bebb0a93363fe3782a3e00c209b1b672acdcf1720d7a3d424a82bc749",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/build_id_cost_request.py",
+      "source_sha256": "3ca8d00a4f9f894e6780c8e22b6ad1332189365cc8f98e39cbc09e12f89c9c71",
+      "published_sha256": "3ca8d00a4f9f894e6780c8e22b6ad1332189365cc8f98e39cbc09e12f89c9c71",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/build_limb_request.py",
+      "source_sha256": "108ea49c6cfa35920523daecb5707076b8ccf05c968e479b4f6bfb6f4a986da4",
+      "published_sha256": "108ea49c6cfa35920523daecb5707076b8ccf05c968e479b4f6bfb6f4a986da4",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/build_mechanism_request.py",
+      "source_sha256": "12cdd299f130b171b8deebdde0671de44c9176a08ba6b59a954f0a1962da315d",
+      "published_sha256": "12cdd299f130b171b8deebdde0671de44c9176a08ba6b59a954f0a1962da315d",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/build_request.py",
+      "source_sha256": "c08335a05532b3dbdf720d9d4b4af88deeef28f7ffab90801c2e92062f5aedfe",
+      "published_sha256": "c08335a05532b3dbdf720d9d4b4af88deeef28f7ffab90801c2e92062f5aedfe",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/cache_cli.py",
+      "source_sha256": "29c47ae426098a9431ba06f7733d4d53870408acc7474b1f8e9867d71e3bde24",
+      "published_sha256": "29c47ae426098a9431ba06f7733d4d53870408acc7474b1f8e9867d71e3bde24",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/cache_state.py",
+      "source_sha256": "c27486859c99829e5ef4079be0951200da1c89217015d95c12770a0e67d9f7e2",
+      "published_sha256": "c27486859c99829e5ef4079be0951200da1c89217015d95c12770a0e67d9f7e2",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/character_state.py",
+      "source_sha256": "9f124c8489bf7f7db50cc85a7edc1b157756a7f4037471d949a2cab8022625f3",
+      "published_sha256": "9f124c8489bf7f7db50cc85a7edc1b157756a7f4037471d949a2cab8022625f3",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/collection_cli.py",
+      "source_sha256": "8a2bf0aa89f7afbb0fd5533342455ea8152c7eaccd0598cccf1fd3660502ca10",
+      "published_sha256": "4b2d1890d43c34bc4def09ef1631b054b5a1a8598df57b075f45a4f847bc69bb",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/collection_fixture.py",
+      "source_sha256": "8e6c1118270ffaa4f47dc7f45bf669a39d814581a0b4aaf82acaa5b130c2803e",
+      "published_sha256": "8e6c1118270ffaa4f47dc7f45bf669a39d814581a0b4aaf82acaa5b130c2803e",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/collection_state.py",
+      "source_sha256": "b1d09e02ac537f07b690162c5a01cd26ff4227d11e19a2ce7b29ab9dfbe46bc6",
+      "published_sha256": "b1d09e02ac537f07b690162c5a01cd26ff4227d11e19a2ce7b29ab9dfbe46bc6",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/dependency_fixture.py",
+      "source_sha256": "9cd124c82de8d38fb48d1036fc823b6700132c252763a90626363bab43770a66",
+      "published_sha256": "9cd124c82de8d38fb48d1036fc823b6700132c252763a90626363bab43770a66",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/derivation_cli.py",
+      "source_sha256": "9e40abffe4e167ecbc40316b1fb0c7fd88c180737c7b183650fce34b0672de37",
+      "published_sha256": "9e40abffe4e167ecbc40316b1fb0c7fd88c180737c7b183650fce34b0672de37",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/derivation_state.py",
+      "source_sha256": "7e6fb23753d23fdfc2a58042006cadaaa0c0d65f7e944b0e4b636fc645188fc1",
+      "published_sha256": "7e6fb23753d23fdfc2a58042006cadaaa0c0d65f7e944b0e4b636fc645188fc1",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/diagnostic_cli.py",
+      "source_sha256": "4dafe23da86fc5ab0fd9915f1a9dbf37427884aed66e3219863b2fc2ef6144aa",
+      "published_sha256": "12ad74fc6a1a43310b215506ae7ba0925c709d320f6d56113ca2c5ca63e2797a",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/diagnostic_fixture.py",
+      "source_sha256": "45f74ed7d89c8ca9d49528f06e018eca6ea9f00a05f929e081bd26c7bc39aca7",
+      "published_sha256": "97eaecabfb88a3fa641c413b3d0bbd24ce121c71a4326a5ab2b050fa541aedfb",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/dynamics_cli.py",
+      "source_sha256": "c1150ebbd8386c23e9a00faa5266bc0d5ef1d2a57e73368dca7cb38ea13f9cee",
+      "published_sha256": "c1150ebbd8386c23e9a00faa5266bc0d5ef1d2a57e73368dca7cb38ea13f9cee",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/dynamics_fixture.py",
+      "source_sha256": "1b97412dd3341d9fd7aa21703d153fbc6d20fb686827a418193a0d5efe6c9cb7",
+      "published_sha256": "1b97412dd3341d9fd7aa21703d153fbc6d20fb686827a418193a0d5efe6c9cb7",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/dynamics_state.py",
+      "source_sha256": "4b2a7120d361e95c9c18a67e271a0e0ee76fa41def5aacf0c2fe71c3ba0b8497",
+      "published_sha256": "4b2a7120d361e95c9c18a67e271a0e0ee76fa41def5aacf0c2fe71c3ba0b8497",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/existing_control_cli.py",
+      "source_sha256": "650a8f94e08a1367d78bb915855155f0fdc5d1a2ad95937d7b96d1ab48469851",
+      "published_sha256": "650a8f94e08a1367d78bb915855155f0fdc5d1a2ad95937d7b96d1ab48469851",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/existing_control_fixture.py",
+      "source_sha256": "5a64560462e108f293b75dfcceab760054a2ad4c06c1bf10c1ecf6b38f3b1dec",
+      "published_sha256": "5a64560462e108f293b75dfcceab760054a2ad4c06c1bf10c1ecf6b38f3b1dec",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/existing_control_state.py",
+      "source_sha256": "aeb56012085bcf33975bfda7fa502557a6f89fc2416d3ec9b54e0f9112653867",
+      "published_sha256": "aeb56012085bcf33975bfda7fa502557a6f89fc2416d3ec9b54e0f9112653867",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/fixture.py",
+      "source_sha256": "862680670a484ec80b1c3d9a5ae7bc9c43e3fcfa56b16b81cc036a61345cf20d",
+      "published_sha256": "862680670a484ec80b1c3d9a5ae7bc9c43e3fcfa56b16b81cc036a61345cf20d",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/front_hair_cli.py",
+      "source_sha256": "e797b7fc34ef8a98d930a397231d94142cf3903d5ff6bfb275ad0301a4da1961",
+      "published_sha256": "e797b7fc34ef8a98d930a397231d94142cf3903d5ff6bfb275ad0301a4da1961",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/hair_actions_cli.py",
+      "source_sha256": "71c19c8c909a4d7f78f7436aa9b5b96a10947ed21ad281934188fdfa7f7fbf3b",
+      "published_sha256": "71c19c8c909a4d7f78f7436aa9b5b96a10947ed21ad281934188fdfa7f7fbf3b",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/hair_pair_cli.py",
+      "source_sha256": "07dec9976bc97b4619798769c18a84f5e170dd3fe990387bdef3f46aaaead084",
+      "published_sha256": "07dec9976bc97b4619798769c18a84f5e170dd3fe990387bdef3f46aaaead084",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/host_contract.py",
+      "source_sha256": "a2fead2859635cfaac88f56d1b8f889f68178690c2dae7a759e2dbb4ee5b5301",
+      "published_sha256": "a2fead2859635cfaac88f56d1b8f889f68178690c2dae7a759e2dbb4ee5b5301",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/id_cost_labels.py",
+      "source_sha256": "7d3e3730c1bab56a7ee8ba2e3a24666634324ef96f5b76d25322c35dfea992d0",
+      "published_sha256": "7d3e3730c1bab56a7ee8ba2e3a24666634324ef96f5b76d25322c35dfea992d0",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/motion_cli.py",
+      "source_sha256": "16e3653cfa057fe545b986061a5aa0055d45b1c37d50d0a122598996366fa562",
+      "published_sha256": "16e3653cfa057fe545b986061a5aa0055d45b1c37d50d0a122598996366fa562",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/motion_fixture.py",
+      "source_sha256": "72c4c67a0619671a78cbf6124b21001d951af42b8aa713111d986c12fc447116",
+      "published_sha256": "72c4c67a0619671a78cbf6124b21001d951af42b8aa713111d986c12fc447116",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/motion_state.py",
+      "source_sha256": "d38fae00f9d44d40136e3aec715eec7810e1c1d5b60c0ef2e152ef31fd9e0401",
+      "published_sha256": "d38fae00f9d44d40136e3aec715eec7810e1c1d5b60c0ef2e152ef31fd9e0401",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/operation_state.py",
+      "source_sha256": "7c0acc556d63d16544fa0c9df9da0a1efca5a7d160d2adf1a35fdeed6b059423",
+      "published_sha256": "7c0acc556d63d16544fa0c9df9da0a1efca5a7d160d2adf1a35fdeed6b059423",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/pose_cli.py",
+      "source_sha256": "47561308e6c2f3b9d13d6b717df996503476d5524f7b5adff5d07705027a7f0a",
+      "published_sha256": "47561308e6c2f3b9d13d6b717df996503476d5524f7b5adff5d07705027a7f0a",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/pose_fixture.py",
+      "source_sha256": "8c1a8d4fe0e14e1e257e79864e79528210726cf5668cf5d439768c24310f498c",
+      "published_sha256": "8c1a8d4fe0e14e1e257e79864e79528210726cf5668cf5d439768c24310f498c",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/pose_state.py",
+      "source_sha256": "e510e64533948a9a098bb5ccc7e55e6b5fe2a85a3b3b4a2b6e4aba7b0a21042a",
+      "published_sha256": "e510e64533948a9a098bb5ccc7e55e6b5fe2a85a3b3b4a2b6e4aba7b0a21042a",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/rebake_cli.py",
+      "source_sha256": "fb7d97dcdd523f38f76b7a70d9e35a177e8cb229f986818336fd471f4056a348",
+      "published_sha256": "fb7d97dcdd523f38f76b7a70d9e35a177e8cb229f986818336fd471f4056a348",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/rigctl.py",
+      "source_sha256": "c394f4eee8e39b503b236019d003bbef75a3e05319e2663aa692df187b0b9540",
+      "published_sha256": "f4cee8938d6279b3c2755dc7db252bca1fbac56151d20ba99070169dbc4b97a3",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/run_cache.py",
+      "source_sha256": "00a54a001b81b130533287fc2213992e9b34edf07c51a693e33f4a27c1683f1f",
+      "published_sha256": "00a54a001b81b130533287fc2213992e9b34edf07c51a693e33f4a27c1683f1f",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/run_collections.py",
+      "source_sha256": "592c951d5517c66fa57ac82a72d6b4979dcf9753378ac4517d1a522a00d8aa07",
+      "published_sha256": "592c951d5517c66fa57ac82a72d6b4979dcf9753378ac4517d1a522a00d8aa07",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/run_controls.py",
+      "source_sha256": "0cdcf1da92df590f3996c8c9fa9e5d0b7c79988697a5adbff467d7aa2a0d8bec",
+      "published_sha256": "0cdcf1da92df590f3996c8c9fa9e5d0b7c79988697a5adbff467d7aa2a0d8bec",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/run_derivation.py",
+      "source_sha256": "e150065edc21cf3a93aa2abe4bb292ac637fea2459bd83a4b0d29391f93006d1",
+      "published_sha256": "e150065edc21cf3a93aa2abe4bb292ac637fea2459bd83a4b0d29391f93006d1",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/run_diagnostic.py",
+      "source_sha256": "5b7ad5046f431e1c14e5ee6c91fb0fc58d7dd90bf19822cbccb0f0a1b956c24a",
+      "published_sha256": "b2a7d9963a0c9088056c8264c57830b568077ee51b6a91d410f742c16a937179",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/run_dynamics.py",
+      "source_sha256": "8660bcacdaeaeeca02175badf0ce12b75c5a34d3c5c3b01c18a8205eaaa63084",
+      "published_sha256": "8660bcacdaeaeeca02175badf0ce12b75c5a34d3c5c3b01c18a8205eaaa63084",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/run_existing_controls.py",
+      "source_sha256": "fdc7a7f8e3a87a3a66639412a8fc854a86ae0b4b9ea2118ad65bfea8eee73f8c",
+      "published_sha256": "fdc7a7f8e3a87a3a66639412a8fc854a86ae0b4b9ea2118ad65bfea8eee73f8c",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/run_front_hair.py",
+      "source_sha256": "978c6446de6ce72464c90a5986007576486ba67ede19428f8105681deb173608",
+      "published_sha256": "978c6446de6ce72464c90a5986007576486ba67ede19428f8105681deb173608",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/run_hair_actions.py",
+      "source_sha256": "1d1aba57e056056305798237ba9c41742fc9047a1d69936ce128b894e457c5ee",
+      "published_sha256": "1d1aba57e056056305798237ba9c41742fc9047a1d69936ce128b894e457c5ee",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/run_hair_pair.py",
+      "source_sha256": "13cf9f7c549f0aaee38fb01fad1a2c33c6c792d1b6ff4fd9a5fce078297d85cb",
+      "published_sha256": "13cf9f7c549f0aaee38fb01fad1a2c33c6c792d1b6ff4fd9a5fce078297d85cb",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/run_id_cost.py",
+      "source_sha256": "feeb75094da7f42eb4cb319d93bc2442cbcdfcdaf409acc273b918e3696723b5",
+      "published_sha256": "feeb75094da7f42eb4cb319d93bc2442cbcdfcdaf409acc273b918e3696723b5",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/run_limb.py",
+      "source_sha256": "6c91d9670d50f9167cfbba6e734b1d5dfa4eb47f46b61ab39400036f8ef4c0c4",
+      "published_sha256": "6c91d9670d50f9167cfbba6e734b1d5dfa4eb47f46b61ab39400036f8ef4c0c4",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/run_mechanisms.py",
+      "source_sha256": "a70dd0c8d5039ac5ba68b1b4a224cab1e9936022f02a1356bb18c65d4bd2f08a",
+      "published_sha256": "a70dd0c8d5039ac5ba68b1b4a224cab1e9936022f02a1356bb18c65d4bd2f08a",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/run_motion.py",
+      "source_sha256": "bcadc6460f39c0d51b4eff2688348f4352896ffd54a44fe0a9c4a14d58cbf384",
+      "published_sha256": "bcadc6460f39c0d51b4eff2688348f4352896ffd54a44fe0a9c4a14d58cbf384",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/run_operation.py",
+      "source_sha256": "0bbd28b248c91d216988830f466bb31539d6669ca73392fd951b38bd907c9ea6",
+      "published_sha256": "0bbd28b248c91d216988830f466bb31539d6669ca73392fd951b38bd907c9ea6",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/run_pose.py",
+      "source_sha256": "e8f7d511b6f0d8f23200832cc5350f845964a7aba90f875b2b786e323b3e0d2f",
+      "published_sha256": "e8f7d511b6f0d8f23200832cc5350f845964a7aba90f875b2b786e323b3e0d2f",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/run_probe.py",
+      "source_sha256": "103aa05fd69725fa3507d3977057b1d9a0600afb31ef4363797afd9645aec954",
+      "published_sha256": "103aa05fd69725fa3507d3977057b1d9a0600afb31ef4363797afd9645aec954",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/run_styles.py",
+      "source_sha256": "d970c2b25830c847ef413203493034c3a633e609e1ae354021cd4ef06f9eed8c",
+      "published_sha256": "d970c2b25830c847ef413203493034c3a633e609e1ae354021cd4ef06f9eed8c",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/run_subdivision.py",
+      "source_sha256": "0866a1c98f9621fac448cf74fa2fb05de5adb0b5e889e766dc94dd466ab73c0b",
+      "published_sha256": "0866a1c98f9621fac448cf74fa2fb05de5adb0b5e889e766dc94dd466ab73c0b",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/run_weights.py",
+      "source_sha256": "ac83f999eeecbb541aad33d2148449ad3b7645ee50ee0d89f6997a01f951ba84",
+      "published_sha256": "ac83f999eeecbb541aad33d2148449ad3b7645ee50ee0d89f6997a01f951ba84",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/space_fixture.py",
+      "source_sha256": "b4fd60f6d7d9c770b9399c8b661d69611ffcdf53750605cdceea0fce86479184",
+      "published_sha256": "b4fd60f6d7d9c770b9399c8b661d69611ffcdf53750605cdceea0fce86479184",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/style_cli.py",
+      "source_sha256": "c576a8d68026c18d0f44e20b23b5affc2c95fdc4d33cb06033dd8e5905ecae35",
+      "published_sha256": "8ae2070bcc09b1a9aac7c0da50a2652db2bba3da441cac64a5b96fd897ea2053",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/style_fixture.py",
+      "source_sha256": "2a50d2a3e5badc90abbce109492fb37a1d8d9baf130c5ce05c6bbb9bb1838851",
+      "published_sha256": "2a50d2a3e5badc90abbce109492fb37a1d8d9baf130c5ce05c6bbb9bb1838851",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/style_state.py",
+      "source_sha256": "db617ccc2df6a47be1aa511f7318abe7eb5c4fc1f6c7554130e16878a49682f9",
+      "published_sha256": "db617ccc2df6a47be1aa511f7318abe7eb5c4fc1f6c7554130e16878a49682f9",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/subdivision_cli.py",
+      "source_sha256": "900692b22afb7fa7e3a3952a238cb5eeba90ca4500a1121e3c8c0ab3c6793545",
+      "published_sha256": "900692b22afb7fa7e3a3952a238cb5eeba90ca4500a1121e3c8c0ab3c6793545",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/subdivision_preflight.py",
+      "source_sha256": "aa940881ecc23c8e431151f8df314687799f0f9fd7b950e81f445a373f0c3503",
+      "published_sha256": "aa940881ecc23c8e431151f8df314687799f0f9fd7b950e81f445a373f0c3503",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/weight_cli.py",
+      "source_sha256": "42e625985232046b6e3ee8be6cbcb5d63a2b02d449fa0a685b854568c06ad12f",
+      "published_sha256": "42e625985232046b6e3ee8be6cbcb5d63a2b02d449fa0a685b854568c06ad12f",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v028/scripts/weight_fixture.py",
+      "source_sha256": "30fce593337c86c1b9d6cdd915fa644553a095e964e8cf364504b2f57fbe098c",
+      "published_sha256": "30fce593337c86c1b9d6cdd915fa644553a095e964e8cf364504b2f57fbe098c",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v045/scripts/character_state.py",
+      "source_sha256": "9f124c8489bf7f7db50cc85a7edc1b157756a7f4037471d949a2cab8022625f3",
+      "published_sha256": "9f124c8489bf7f7db50cc85a7edc1b157756a7f4037471d949a2cab8022625f3",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v063/product/body_semantic/semantic_contract.py",
+      "source_sha256": "69e93020fde3586a6574ecfd97ef1420e8da1b1fddecf2dae0a9b5d12b05417a",
+      "published_sha256": "69e93020fde3586a6574ecfd97ef1420e8da1b1fddecf2dae0a9b5d12b05417a",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v063/product/body_semantic/semantic_native.py",
+      "source_sha256": "c127a98a28d501d1fa67066f363a0d0af0af780e840b67e6361b315426627039",
+      "published_sha256": "c127a98a28d501d1fa67066f363a0d0af0af780e840b67e6361b315426627039",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v063/product/chain_core/constraints.py",
+      "source_sha256": "2062498cd0ce2d6ae04e0b10006aee09130a47279d229aa085750d4db5e387f3",
+      "published_sha256": "2062498cd0ce2d6ae04e0b10006aee09130a47279d229aa085750d4db5e387f3",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v063/product/chain_core/evidence.py",
+      "source_sha256": "c591b26116c63c5935e6fe5da72171b5f2601bdb7a95f0ee94d5a0878f93077f",
+      "published_sha256": "c591b26116c63c5935e6fe5da72171b5f2601bdb7a95f0ee94d5a0878f93077f",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v063/product/chain_core/native_adapter.py",
+      "source_sha256": "fd696055134355dbe1ea689beb82c702053365441d4edfadb6121765116b581a",
+      "published_sha256": "fd696055134355dbe1ea689beb82c702053365441d4edfadb6121765116b581a",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v063/product/chain_core/native_study.py",
+      "source_sha256": "a51e784772b13e733a8d317109278a3e785160c3b64c67ec2f18f44ae0d40643",
+      "published_sha256": "a51e784772b13e733a8d317109278a3e785160c3b64c67ec2f18f44ae0d40643",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v063/product/chain_core/temporal_study.py",
+      "source_sha256": "eabad264fa813d273d202aa233b09badd9fea7371c329f161fc02931f07f32f4",
+      "published_sha256": "eabad264fa813d273d202aa233b09badd9fea7371c329f161fc02931f07f32f4",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v063/product/facial_keys/face_recipe_contract.py",
+      "source_sha256": "fc752e0b4daa0970fe292d20e1cfaf8825164dc51a56d025f595bca8b9a077df",
+      "published_sha256": "fc752e0b4daa0970fe292d20e1cfaf8825164dc51a56d025f595bca8b9a077df",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v063/product/facial_keys/facial_keys.py",
+      "source_sha256": "66581ce678c404b680e3951d310d28aea28f1c7760ea93dc15731d97cae73773",
+      "published_sha256": "66581ce678c404b680e3951d310d28aea28f1c7760ea93dc15731d97cae73773",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v065/product/chain_core/coherent_constraints.py",
+      "source_sha256": "90428c36b886ae1a31394ec61b24be2a32c34cbba9b55651994bd2ef702762d3",
+      "published_sha256": "1e49472b80e675e1956a103b9045a3e8a2f1e4421eb765a75c2adc6f15975a43",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v065/product/control_core/native_control.py",
+      "source_sha256": "0887373f1a7205252ef21032315a055cbd748470a30d222247d0893cc850427b",
+      "published_sha256": "0887373f1a7205252ef21032315a055cbd748470a30d222247d0893cc850427b",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v068/product/control_transport/__init__.py",
+      "source_sha256": "8b66dfbf34c4d846a40efa5e2a21d39a0bdbf502a66230d7160ebe51ae92cdb2",
+      "published_sha256": "8b66dfbf34c4d846a40efa5e2a21d39a0bdbf502a66230d7160ebe51ae92cdb2",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v068/product/control_transport/cli.py",
+      "source_sha256": "eb31c0c8e5baee20e40f43bf743b00b2381a5f129e427147632f608825bd7411",
+      "published_sha256": "eb31c0c8e5baee20e40f43bf743b00b2381a5f129e427147632f608825bd7411",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v068/product/control_transport/job_worker.py",
+      "source_sha256": "4b3ee7919e727032f0bc55d23a47012e0a94d1f863ff8936d66b8be14a4d764e",
+      "published_sha256": "4b3ee7919e727032f0bc55d23a47012e0a94d1f863ff8936d66b8be14a4d764e",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v068/product/control_transport/saved_job.py",
+      "source_sha256": "3dfdd33bb5540a2265e0da91fe06487a5af391c53036aeba7977737cdd4f2483",
+      "published_sha256": "3dfdd33bb5540a2265e0da91fe06487a5af391c53036aeba7977737cdd4f2483",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v068/product/control_transport/transport.py",
+      "source_sha256": "5a25c51dca31db5e783fc31a15070872c0de66b225d15031aaf057b553ad2e54",
+      "published_sha256": "5a25c51dca31db5e783fc31a15070872c0de66b225d15031aaf057b553ad2e54",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v068/product/control_ui/__init__.py",
+      "source_sha256": "68bab0bc46e03e12e0caaa0e67f62d0e00598f96bf69b9b6727c10cbba16c7ad",
+      "published_sha256": "68bab0bc46e03e12e0caaa0e67f62d0e00598f96bf69b9b6727c10cbba16c7ad",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v068/product/control_ui/addon.py",
+      "source_sha256": "bbf0d12946ecc1da0880e24c2afb3f4527a1f9a5abce2725d868597861ffc5c8",
+      "published_sha256": "bbf0d12946ecc1da0880e24c2afb3f4527a1f9a5abce2725d868597861ffc5c8",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v068/product/control_ui/controller.py",
+      "source_sha256": "9d33022157b12bf6ff408de007b9138461c0724f174b258505d10d640ff7310d",
+      "published_sha256": "9d33022157b12bf6ff408de007b9138461c0724f174b258505d10d640ff7310d",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v068/product/native_controls/__init__.py",
+      "source_sha256": "42a107bb0ef5de1a4b211da155e765bcdeef1e07b3e3b7c4843a9bd282ccf080",
+      "published_sha256": "42a107bb0ef5de1a4b211da155e765bcdeef1e07b3e3b7c4843a9bd282ccf080",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v068/product/native_controls/contract.py",
+      "source_sha256": "5fe1495a55b0949232c96c4b796166bc30bce82ef58300720ff4789d4b593a9f",
+      "published_sha256": "5fe1495a55b0949232c96c4b796166bc30bce82ef58300720ff4789d4b593a9f",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v068/product/native_controls/native.py",
+      "source_sha256": "534e071a6f6374a5825efa9a2a55c2e8c6e98371cd0717673e213fdcb93f91c1",
+      "published_sha256": "534e071a6f6374a5825efa9a2a55c2e8c6e98371cd0717673e213fdcb93f91c1",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v068/product/native_controls/outputs.py",
+      "source_sha256": "4aee19cf5b7ae11149f2c9c2b22be0b2cac5dcddc1fef9fed69aadb1f1a90f63",
+      "published_sha256": "4aee19cf5b7ae11149f2c9c2b22be0b2cac5dcddc1fef9fed69aadb1f1a90f63",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v068/product/template_bundle/__init__.py",
+      "source_sha256": "7a6eff0ac9de60b75119cdca17744e263bdd3bd02f64ba8e3c5b8fe34146c5e8",
+      "published_sha256": "7a6eff0ac9de60b75119cdca17744e263bdd3bd02f64ba8e3c5b8fe34146c5e8",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v068/product/template_bundle/__main__.py",
+      "source_sha256": "210b9d46c83108079c7fc5add64e5928bb2e69c5e9506b2a2d6acbb3186d59a2",
+      "published_sha256": "210b9d46c83108079c7fc5add64e5928bb2e69c5e9506b2a2d6acbb3186d59a2",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v068/product/template_bundle/bundle.py",
+      "source_sha256": "9f9b412851a1751622b38336d92840a832daef9d0cec69b0b0363e47be1dfe2b",
+      "published_sha256": "9f9b412851a1751622b38336d92840a832daef9d0cec69b0b0363e47be1dfe2b",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v068/product/weight_template/__init__.py",
+      "source_sha256": "28300984823329922a1f95ff1b2d1bb13f63522e6ebf499bf9ec7b0224112ca0",
+      "published_sha256": "28300984823329922a1f95ff1b2d1bb13f63522e6ebf499bf9ec7b0224112ca0",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v068/product/weight_template/contract.py",
+      "source_sha256": "a3ea80f9466692633e11a9e21851af21d0a029b7580c6c1877464b44df18508c",
+      "published_sha256": "a3ea80f9466692633e11a9e21851af21d0a029b7580c6c1877464b44df18508c",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v068/product/weight_template/core.py",
+      "source_sha256": "e457b97e71f7deff98b790f350616b7b6895a74672f90bceeb14726ce7596b32",
+      "published_sha256": "e457b97e71f7deff98b790f350616b7b6895a74672f90bceeb14726ce7596b32",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v068/product/weight_template/diagnose_lbs.py",
+      "source_sha256": "5735785c54f1cdf00c3bbbd0adecf624d891199ef0b48413042c7e94900047dd",
+      "published_sha256": "5735785c54f1cdf00c3bbbd0adecf624d891199ef0b48413042c7e94900047dd",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v068/product/weight_template/native.py",
+      "source_sha256": "a83c236f82ac6036e3c2a34ab42964a1fa17bf137c1f5d2bd8df5cff1a7b5d1b",
+      "published_sha256": "a83c236f82ac6036e3c2a34ab42964a1fa17bf137c1f5d2bd8df5cff1a7b5d1b",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v068/product/weight_template/probe_bbone.py",
+      "source_sha256": "a370c4d384d3548c91ce0e81968a2a160e17450449d1ee8fed4c0bf8be4864a6",
+      "published_sha256": "a370c4d384d3548c91ce0e81968a2a160e17450449d1ee8fed4c0bf8be4864a6",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v068/product/weight_template/probe_native.py",
+      "source_sha256": "680eca1bb8ce3b5c154f16c9f91053512dec02a5cd5a900fadb07c9c19e4c9c8",
+      "published_sha256": "680eca1bb8ce3b5c154f16c9f91053512dec02a5cd5a900fadb07c9c19e4c9c8",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v068/product/weight_template/probe_pose.py",
+      "source_sha256": "76a92d651635160add2de626633be7664e3f3943e5202ccab07d8eabda760bec",
+      "published_sha256": "76a92d651635160add2de626633be7664e3f3943e5202ccab07d8eabda760bec",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v068/product/weight_template/probe_region.py",
+      "source_sha256": "cfa88aaac3faeb0735822d338657671cc4fba7f047c5c7e67f202e6d31200971",
+      "published_sha256": "cfa88aaac3faeb0735822d338657671cc4fba7f047c5c7e67f202e6d31200971",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v068/product/weight_template/probe_shirt.py",
+      "source_sha256": "1176841db826159d330bf306faf7a3442dff31794cce98d51f10b805b7266151",
+      "published_sha256": "1176841db826159d330bf306faf7a3442dff31794cce98d51f10b805b7266151",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v068/product/weight_template/probe_shirt_back.py",
+      "source_sha256": "0f41ca7e46f7f32dbcf46b71ef519c301a20f6f69a4df183ef4ca29ca85a1f05",
+      "published_sha256": "0f41ca7e46f7f32dbcf46b71ef519c301a20f6f69a4df183ef4ca29ca85a1f05",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v068/product/weight_template/probe_zero.py",
+      "source_sha256": "cbd79e45ad8279a02241bde5c9404af92f8b3d61b8ddb468be32212cb728eb16",
+      "published_sha256": "cbd79e45ad8279a02241bde5c9404af92f8b3d61b8ddb468be32212cb728eb16",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v068/product/weight_template/worker.py",
+      "source_sha256": "d3b8b9a46a07666f36ae9eba60bcd583042aea8d422656a03dd1ee3826067634",
+      "published_sha256": "d3b8b9a46a07666f36ae9eba60bcd583042aea8d422656a03dd1ee3826067634",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v094/product/control_animation/__init__.py",
+      "source_sha256": "ccca8195e45c45e1320593c6b7e0b636546f3552661caaf5379e6a491556d81f",
+      "published_sha256": "ccca8195e45c45e1320593c6b7e0b636546f3552661caaf5379e6a491556d81f",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v094/product/control_animation/native.py",
+      "source_sha256": "d217ae61e0a76b6e124ed8a003a567c075c6451cb63826c2bb3b4d0d7f460127",
+      "published_sha256": "d217ae61e0a76b6e124ed8a003a567c075c6451cb63826c2bb3b4d0d7f460127",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v094/product/control_animation/session.py",
+      "source_sha256": "5581bc675ab19ce49c46d3c030566379779daa3a6f15bf14477b287b791bc1bb",
+      "published_sha256": "5581bc675ab19ce49c46d3c030566379779daa3a6f15bf14477b287b791bc1bb",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v094/product/control_animation/ui.py",
+      "source_sha256": "7ef3e5df47a57dc43cb8f3feac5cedd4e98b299c03686e514df2d2c133fe9864",
+      "published_sha256": "7ef3e5df47a57dc43cb8f3feac5cedd4e98b299c03686e514df2d2c133fe9864",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v094/product/diagnostic_views.py",
+      "source_sha256": "731c0888b0b9f7f083191c005c14a06175f4d6a093b2798e7e58700f00264028",
+      "published_sha256": "731c0888b0b9f7f083191c005c14a06175f4d6a093b2798e7e58700f00264028",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v094/product/fullbody_controls/__init__.py",
+      "source_sha256": "e6bb5a415907292aa57a45fdfc4d02e3983e8e5be2e0798656befb0c3be5902f",
+      "published_sha256": "e6bb5a415907292aa57a45fdfc4d02e3983e8e5be2e0798656befb0c3be5902f",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v094/product/fullbody_controls/cases.py",
+      "source_sha256": "85c62cc843205309609714215306f4b8a84fab9aefffeac60cb1f5c6cc6a6763",
+      "published_sha256": "85c62cc843205309609714215306f4b8a84fab9aefffeac60cb1f5c6cc6a6763",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v094/product/fullbody_controls/profile_builder.py",
+      "source_sha256": "5a4ae7923c83525d0a2cf6e78bde18c46f2ac1c3062097f548fb95df621b5b15",
+      "published_sha256": "5a4ae7923c83525d0a2cf6e78bde18c46f2ac1c3062097f548fb95df621b5b15",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v094/product/hip_deform/__init__.py",
+      "source_sha256": "369cd48ab91afce5aed6767499a1573b15644b863780d577bcba8467954e8ec9",
+      "published_sha256": "369cd48ab91afce5aed6767499a1573b15644b863780d577bcba8467954e8ec9",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v094/product/hip_deform/native.py",
+      "source_sha256": "21d1b1c8cbdcb474b19b80403a2edd4a3ff49d6f6784e9f3a1ec765b3a99cdd3",
+      "published_sha256": "21d1b1c8cbdcb474b19b80403a2edd4a3ff49d6f6784e9f3a1ec765b3a99cdd3",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v106/product/rest_edit/__init__.py",
+      "source_sha256": "e6e237fa454de9fde73b83f2b3dfe617a80c48dd4504b7a17a14f976c2211683",
+      "published_sha256": "e6e237fa454de9fde73b83f2b3dfe617a80c48dd4504b7a17a14f976c2211683",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v106/product/rest_edit/consumers.py",
+      "source_sha256": "b9d454843968a012a32fd21802d962911d97c44aa422146ece9f1d3203194f8c",
+      "published_sha256": "b9d454843968a012a32fd21802d962911d97c44aa422146ece9f1d3203194f8c",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v106/product/rest_edit/contract.py",
+      "source_sha256": "952492b3ce0d13ea6083c14c4a8de3a5628fd69d279b331e3165fad3de2ac62c",
+      "published_sha256": "952492b3ce0d13ea6083c14c4a8de3a5628fd69d279b331e3165fad3de2ac62c",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v106/product/rest_edit/native.py",
+      "source_sha256": "964f2f7021887a3326a86a467765c5404bd6e85560af8ca9be68ee8cadd0c474",
+      "published_sha256": "964f2f7021887a3326a86a467765c5404bd6e85560af8ca9be68ee8cadd0c474",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v106/product/rest_edit/parent_contract.py",
+      "source_sha256": "a8a2cfa9fc839187410786e3a4d9440c1b0dc29b5675332ecd81fb1f2f314a7d",
+      "published_sha256": "a8a2cfa9fc839187410786e3a4d9440c1b0dc29b5675332ecd81fb1f2f314a7d",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v106/product/rest_edit/profile.py",
+      "source_sha256": "321d70c228685c22fdf348a285a5bea55cfb6c59612fad0b6785b17325084516",
+      "published_sha256": "321d70c228685c22fdf348a285a5bea55cfb6c59612fad0b6785b17325084516",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v106/product/rest_edit/session.py",
+      "source_sha256": "1370f82db7c1ed3ecd63800f324a79a4c4baa4bc97d572c724cf20b151f0de60",
+      "published_sha256": "0f84376c817b86a14fbbbc7c598be3b90de076839a7fdc34491eccc3e7194eea",
+      "portable_path_edits": 1
+    },
+    {
+      "file": "work/hrig-p2-v106/product/rest_edit/ui.py",
+      "source_sha256": "5d5fc3eaabebd2decf7ceb397a0a89e31457ae9ae2223fbd54434d718bf6a5d9",
+      "published_sha256": "5d5fc3eaabebd2decf7ceb397a0a89e31457ae9ae2223fbd54434d718bf6a5d9",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-p2-v106/product/rest_edit/witness.py",
+      "source_sha256": "bd783408a535ddc99b92d18b640cb62580fa259e78e0adaa9d02cc653259f474",
+      "published_sha256": "4f675cdd3cda76af487e8912cafe3521da3071ae58ab169fcb2a0fd9d32a62fc",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-proportion-v127/product/local_proportion/__init__.py",
+      "source_sha256": "a32ce2de5cfe7b833abc15f0825df3d76893945dda3ef391604215e79a31bb4a",
+      "published_sha256": "a8d845169d3544b44d4e6087c63ebb4328e161ee86222cfee3aeaac93fae17e6",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-proportion-v127/product/local_proportion/session.py",
+      "source_sha256": "3693d58424728012e14e95ce09a81dbf087f4562d24620328dbba5cb3911a215",
+      "published_sha256": "1f0c6ce62220465d413a36d9790e9763315d96bbc5ec9ab97058621e680f2a0e",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-proportion-v127/product/local_proportion/ui.py",
+      "source_sha256": "661bec122c4836361a8a39d07e0daa8c803082535f63de01e2ddeef0d25f2b05",
+      "published_sha256": "761aacd63a956382c67b03e0e3e0227d6f9cb358d17a8987cad3c37118d90725",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-rest-v116/product/rest_workspace/__init__.py",
+      "source_sha256": "be2a2924b2d13175198007c017434b3344002d543eed8f5de139c2c89466c6ba",
+      "published_sha256": "be2a2924b2d13175198007c017434b3344002d543eed8f5de139c2c89466c6ba",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-rest-v116/product/rest_workspace/contract.py",
+      "source_sha256": "c20dc7d07dfe003083645d6b4b4d85b09dd0bdc2192d0707f6340e7913cac399",
+      "published_sha256": "c20dc7d07dfe003083645d6b4b4d85b09dd0bdc2192d0707f6340e7913cac399",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-rest-v116/product/rest_workspace/native.py",
+      "source_sha256": "b517084592730b84d03338c002b420d1d4727b3bdb2bd6f80cbe06e34d5d88e7",
+      "published_sha256": "b517084592730b84d03338c002b420d1d4727b3bdb2bd6f80cbe06e34d5d88e7",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-rest-v116/product/rest_workspace/semantic.py",
+      "source_sha256": "e24fab928c1ebeb409331c4fd1eba593f87747c4d0d8c0192f1af25e649e3d33",
+      "published_sha256": "e24fab928c1ebeb409331c4fd1eba593f87747c4d0d8c0192f1af25e649e3d33",
+      "portable_path_edits": 0
+    },
+    {
+      "file": "work/hrig-rest-v116/product/rest_workspace/session.py",
+      "source_sha256": "16884970c17719f37f9bf6f5d8f4755a639b552b644986e835c14bcd31f29cfd",
+      "published_sha256": "62ca705098d7173a33bbb6e5e0594cd4b0b2c279c2997e94248ef8d0b3ec73c3",
+      "portable_path_edits": 1
+    },
+    {
+      "file": "work/hrig-rest-v116/product/rest_workspace/ui.py",
+      "source_sha256": "3ff42d3a44bbaf9456250923e530a5898eee61c5b75f9f68396e4b2435a47b32",
+      "published_sha256": "3ff42d3a44bbaf9456250923e530a5898eee61c5b75f9f68396e4b2435a47b32",
+      "portable_path_edits": 0
+    }
+  ],
+  "excluded_local_harnesses": [
+    "work/hrig-p2-v068/product/weight_template/run.py"
+  ],
+  "licensing": "Self-authored code published by owner authorization under GPL-3.0-or-later; includes GPL blenderctl support modules; no character/profile data or third-party add-on code.",
+  "publication_changes": [
+    "Package-relative path helper for code lookups",
+    "Explicit BLENDERCTL_ENTRY for legacy rigctl",
+    "Excluded local weight-template run harness",
+    "Original basic add-on runtime unchanged",
+    "Stable LF source packaging"
+  ]
+}

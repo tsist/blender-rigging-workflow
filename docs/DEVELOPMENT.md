@@ -1,16 +1,9 @@
-# Planned capability integration
+# 当前开发与历史范围
 
-The previous development WM has been archived with its working components and known limitations preserved. The new task is **rigging capability integration**, currently **planned**, not formally started.
+当前主产品是 `rigging_workflow/` 0.40.0-r3，唯一技能是 `skills/blender-rigging/`。原0.1.0-dev1的SDK目录、hrig_paths及根SOURCE_MAP保留为来源历史，不是需要共同安装的组件，也不是新版本仍待完成的任务清单。
 
-Candidate sources: Auto-Rig Pro; auto-rigpro-ai; Rigify; wiggle-2-rtx-version; the Aon bone-panel addition script; voxel-based automatic skinning. Exact projects, versions, desired features and licensing need to be established. No candidate name implies available redistribution rights or an implementation already present in this release.
+本次整顿完成既有支持范围的确认缺陷闭环与原生角色工作台。后续应按具体输入、可复现问题和支持表开展，不从历史pending文字自动重启旧任务。没有恢复GLB／密集Key交换研究，没有扩展任意Rigify／VRM／UE骨架，也没有实现源NLA最终合成。
 
-When formally started:
+优先保持数据保护、错误恢复和可解释状态；人类界面和AI／公共extension.run共用核心。不为发布新增第二套运行核心，不用测试数量代替真实输出与视觉判断。
 
-1. Use grilling to confirm the actual work scenarios, desired features, priorities, automation, UI and visible outcomes. Do not pre-empt that interview with fixed design choices.
-2. Inspect exact implementations and licenses; choose appropriate API adaptation, permitted code reuse, design reference or independent implementation.
-3. Establish a visible, useful feature on a real representative character before broadening scope. Do not substitute a rough framework or simplified proxy for complex-task results.
-4. Integrate the plug-in, CLI and single companion skill, including usable preview, settings, save and recovery.
-5. Observe actual large-angle cycles/intermediate frames, character-specific expressions and hair physics; improve concrete defects and distinguish basic operation from detailed quality.
-6. Deliver the confirmed capabilities with source, installation and validation notes.
-
-The plug-in covers bones/controls, binding and weights, expression Shape Keys and hair physics. It does not become a performance-animation authoring product merely because fixed animations are used for testing. The garment case, automatic weight objectives and quality refinements will be placed appropriately during the future interview.
+跨机器的运行验证、额外输入、生产发型／裙及完整动作艺术验收按新的具名需求安排；本预发布不把这些未验项写成通过。具体契约见操作指南、支持矩阵和VALIDATION。

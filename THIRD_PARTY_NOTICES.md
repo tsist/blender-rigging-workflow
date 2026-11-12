@@ -1,3 +1,9 @@
+# Current runtime and historical third-party notices
+
+The current runtime is under rigging_workflow/. Its [complete notices](rigging_workflow/THIRD_PARTY_NOTICES.md) and resource-side licenses apply. Project code is GPL-3.0-or-later; vendor/pycpd is MIT; the unmodified Uka PMX reference is CC BY 4.0, with attribution and upstream guidelines preserved. No private C94 template, target model, font, texture, VMD or sample motion is distributed. MMD Tools/OpenCC are external dependencies. See [publication scope](docs/PUBLICATION.md).
+
+## Historical 0.1.0-dev1 SDK notices (preserved)
+
 # Source and dependencies
 
 This distribution contains selected self-authored Blender AI / tsist development code, released under GPL-3.0-or-later. Existing source boundaries and component origins are retained in SOURCE_MAP.json. Packaging changes replace a small set of absolute workstation code paths with package-relative lookup and provide explicit development import setup.

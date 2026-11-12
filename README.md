@@ -1,43 +1,42 @@
 # Blender Rigging Workflow
 
-Open-source development baseline for a Blender rigging add-on and its companion agent skill.
+[简体中文](README.zh-CN.md)
 
-**The basic feature areas are present; detailed deformation quality has not been accepted.** This is a development snapshot, not a finished auto-rigging system or a promise that every component already shares one UI. Existing components cover bone/control operations, weight editing, expression Shape Keys and hair-bone physics. Test animation is a rig-inspection aid, not an animation-authoring product.
+**0.40.0-r3** — a reviewed Windows / Blender **5.2.1 LTS** runtime snapshot and its single companion agent skill. GPL-3.0-or-later for project code; bundled third-party files retain their own licenses.
 
-Release **0.1.0-dev1** · base add-on **0.22.0** · GPL-3.0-or-later · runtime baseline: Blender **5.2.1**, Windows.
+The current add-on unifies 38 business panels under **3D View → N → 角色工作台** (Character Workbench), with character context, freely selectable production stages, and Daily / Advanced / Developer levels. Existing supported rigs, weights, Shape Keys, Actions, slots and NLA are preserved within the documented operations.
 
-## Contents
+## Install
 
-- `work/hrig-p2-v028/addon/humanoid_rigging_probe`: the existing installable base add-on, including inspection, control, weight and hair helpers.
-- Later `work/*/product` folders: development components for bone structure edits, local weight tools, templates, face Shape Key editing, local proportion studies and component coordination. Folder versions preserve source provenance, not separate products to install together.
-- `hrig_paths.py`: opt-in development import setup and package-relative code paths.
-- `skills/blender-rigging`: the single portable companion skill.
-- `docs`: setup, actual support boundaries, validation and the next-stage task outline.
-- `SOURCE_MAP.json`: selected original source and packaging changes. No private audit logs, character files, textures or credentials are included.
+Download [rigging_workflow-0.40.0-local-r3.zip](https://github.com/tsist/blender-rigging-workflow/releases/tag/v0.40.0-r3), install it from **Preferences → Add-ons → Install from Disk**, and enable it. The repository source ZIP is not the add-on installer.
 
-## Install the base add-on
+The [release](https://github.com/tsist/blender-rigging-workflow/releases/tag/v0.40.0-r3) also includes the portable `blender-rigging` skill, full source and SHA256SUMS. Installation is manual; this repository does not modify an existing Blender installation.
 
-Download `humanoid-rigging-probe-0.22.0.zip` from Releases. In Blender use **Preferences → Add-ons → Install from Disk**, then enable **Humanoid Rigging Probe**. The panel is in **3D View → Sidebar → P2 Rig Probe**. This installs the original base panel; it does not automatically initialize later component sessions or supply a character.
+## What is available
 
-For development, clone this repository, then in Blender's Python environment:
+- Preparation, positioning, a fixed C94 template fitting/generation workflow, volumetric skinning, local weight tools and native rig maintenance.
+- Shared bone/Shape Key face authoring and daily controls, explicit existing-Key mapping and recoverable revisions.
+- Chest/hip elasticity and native Cloth-based hair/skirt residual clips, preview, stop, reset and bake.
+- Supported animation retargeting, source/profile configuration, background queues, collection, preview and cancellation.
+- A manually executed portable Text workbench for the documented daily runtime.
 
-```python
-import sys
-sys.path.insert(0, '/absolute/path/to/blender-rigging-workflow')
-from hrig_paths import configure
-configure()
-from weight_workflow import contract
-from rest_workspace import session
-```
+**The private C94 rig template, positioning atlas, target characters and sample motions are not distributed.** New-character C94 generation requires independently supplied authorized inputs. This is not a universal auto-rig for arbitrary control graphs. See [setup](docs/SETUP.md), [workflow guide](rigging_workflow/USER-GUIDE.md), [AI calls](rigging_workflow/AI-CALLS.md) and [support matrix](rigging_workflow/SUPPORT-MATRIX.md).
 
-Use your own authorized character and explicit source/profile/output parameters. Character-specific face adapters are preserved as development code, not universal face-generation tools. See [setup and component entry points](docs/SETUP.md).
+## Review and boundaries
 
-The separate [blenderctl](https://github.com/tsist/blenderctl) repository provides background jobs and the existing managed `extension.run` entry. No new universal public rigging command is claimed. Source-bound receipts from the original workstation are not reusable with this distribution.
+The native Windows review exercised a real 53,598-point binding input, six existing-project warm/cold paths, face and short physical clips, real background queue success/failure/cancellation, visible GUI interaction and isolated native installation. [Validation](docs/VALIDATION.md) distinguishes technical behavior, visual quality and untested scope. These are named sample results, not all-input or all-branch coverage.
 
-## Capabilities and limits
+This release preserves the reviewed runtime payload **byte for byte**. A few original path defaults and provenance records describe the test workstation: configure your own CLI / MMD Tools / OpenCC paths in the existing panels. Private audit contents are not uploaded. Package-internal README/notices retain the state of the original local snapshot; this repository's current publication status and limitations are recorded in [PUBLICATION.md](docs/PUBLICATION.md).
 
-Bone structure edits, existing control operations, smoothing/mirroring/normalization/influence limits, neighbor-based weight filling, explicit templates and expression editing have prior project evidence. Neighbor filling is not whole-character automatic initial skinning. Hair physics has finite character/input evidence; visible hair-mesh repair is separate. Garment fitting and local proportion experiments remain development studies.
+The release remains a **prerelease**: runtime evidence covers Windows / Blender 5.2.1, not cross-platform production qualification. Source packaging CI on Linux does not certify Blender runtime support there.
 
-Observe large-angle test cycles such as splits, arm bends and squats, including intermediate poses. Expression tests are designed for each character. Functional response and artistic/deformation quality are reported separately. See [validation](docs/VALIDATION.md).
+## Repository layout
 
-The planned next stage studies selected major capabilities from Auto-Rig Pro, auto-rigpro-ai, Rigify, wiggle-2-rtx-version, an Aon bone-panel script and voxel skinning. Detailed requirements will be collected with grilling when that task is formally started. **None of those third-party add-ons is bundled or claimed implemented here.** See [development outline](docs/DEVELOPMENT.md) and [third-party notices](THIRD_PARTY_NOTICES.md).
+- `rigging_workflow/`: current 183-file runtime, 165 Python files; install this product.
+- `skills/blender-rigging/`: the only current portable companion skill.
+- `scripts/`: reproducible packaging and optional factory-startup registration smoke.
+- `work/`, `tools/`, `hrig_paths.py` and root `SOURCE_MAP.json`: preserved historical 0.1.0-dev1 SDK sources. Do not combine those legacy components with the current runtime.
+
+[License](LICENSE) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Changes](CHANGELOG.md) · [Development scope](docs/DEVELOPMENT.md)
+
+The separate [blenderctl](https://github.com/tsist/blenderctl) provides managed `extension.run`; no invented universal rigging command is claimed. Historical receipts and saved RAM session tokens do not grant new submission or commit rights.

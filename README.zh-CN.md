@@ -1,13 +1,38 @@
-# Blender 骨骼与绑定工作流
+# Blender 骨骼与角色工作台
 
-本仓库发布现有自有插件和唯一配套技能的开发基线。**基本功能面已经就绪，具体质量尚未验收；后期组件尚未全部整合进统一界面。**
+[English](README.md)
 
-职责包括骨骼与控制器、绑定刷权重、表情形态键和头发骨骼物理。具体动画制作不在范围内；固定循环动作仅用于观察绑定、大角度姿态与中间帧。
+当前发布 **0.40.0-r3**，对应已验收的 0.40.0 local-r3 原始运行包。适用环境为 **Windows / Blender 5.2.1 LTS**。项目代码 GPL-3.0-or-later；第三方代码和参考资源分别保留原许可。
 
-Release 提供现有基础插件 ZIP、源码和配套技能。基础插件可从 Blender 偏好设置安装；后期组件是需要显式初始化和角色输入的开发 API，不是自动完成整人绑定的向导。具体见 [安装与入口](docs/SETUP.md)及[实际验证边界](docs/VALIDATION.md)。
+在 **3D 视图 → N → 角色工作台** 进入。已有角色选择骨架并点击“进入角色”，新角色从准备与定位开始。38 个业务面板统一到角色状态、制作阶段和日常／进阶／开发层级，阶段可以直接跳转。
 
-现有模块涵盖骨骼结构编辑、局部权重工具、模板、表情和头发辅助。邻点补权不等于整角色自动初绑；服装和比例实验不冒充已验收的成品功能。
+## 安装与技能
 
-下一阶段将研究 Auto-Rig Pro、auto-rigpro-ai、Rigify、wiggle-2-rtx-version、爱音骨骼面板添加脚本和体素化自动蒙皮的主要能力。任务仅建立初步框架，正式启动后先用 grilling 获取具体需求。当前发行不包含这些第三方插件，也不声称已实现它们的功能。
+从 [v0.40.0-r3 发布页](https://github.com/tsist/blender-rigging-workflow/releases/tag/v0.40.0-r3) 下载：
 
-GPL-3.0-or-later。模型、贴图、Blender、商业插件、AI 模型和私人配置不随仓库分发。原始来源与分发调整见 SOURCE_MAP.json；许可与外部依赖见 THIRD_PARTY_NOTICES.md。
+- `rigging_workflow-0.40.0-local-r3.zip`：Blender 偏好设置 → 插件 → 从磁盘安装，然后启用。
+- `blender-rigging-skill-0.40.0-r3.zip`：唯一配套技能及便携参考说明。
+- `blender-rigging-workflow-0.40.0-r3-source.zip`：完整仓库源码。
+- `SHA256SUMS`：附件校验值。
+
+不要把完整源码 ZIP 当作 Blender 插件安装。先在独立配置中试用，自行保留旧工程与插件备份。仓库不会自动覆盖日常安装。
+
+## 当前能力
+
+准备与定位、固定 C94 模板拟合与生成、体积扩散蒙皮及局部权重维护；骨输入／Shape Key 共用的面部作者与日常控制；胸臀弹性、发束和裙摆原生 Cloth 残差片段；已支持来源的动画重定向、Profile 与后台队列；随文件手动运行的日常工作台。
+
+**私有 C94 骨架模板、定位图谱、角色、字体、纹理及样本动作不包含在仓库中。** 新角色 C94 生成需自行提供有权使用且满足要求的模板与定位输入。普通已有骨架维护与特定 C94 流程的能力不同，不承诺任意骨架、任意角色一键绑定。
+
+参阅 [安装与输入准备](docs/SETUP.md)、[操作指南](rigging_workflow/USER-GUIDE.md)、[AI 与公共命令](rigging_workflow/AI-CALLS.md)、[重定向指南](rigging_workflow/RETARGET-USER-GUIDE.md) 和 [支持范围](rigging_workflow/SUPPORT-MATRIX.md)。
+
+## 实际验证与限制
+
+本轮已完成具名支持范围的确认缺陷闭环，覆盖真实 53,598 点绑定输入、六类已有工程热／冷开、面部、胸臀／侧发／技术裙片、真实后台成功／坏项／取消、实际可见界面，以及最终包原生隔离安装。技术、视觉与素材质量分别判断，详见 [验收说明](docs/VALIDATION.md)。
+
+发布包保持已验收运行代码与资源逐字节一致；少量路径默认值和来源记录仍描述原测试机。换机器时须在现有面板中选择真实 CLI、MMD Tools 与 OpenCC 路径，不会自动下载依赖。包内历史文档的“尚未公开发布”指原本地快照形成时的状态；当前发布以 [公开分发说明](docs/PUBLICATION.md) 为准。
+
+此版本保留为预发布：未认证跨平台运行、任意输入组合、完整素材美术质量、长片连续无穿透或真实 camera VMD 逐帧视觉。暂停的 GLB／密集交换研究没有恢复。源码打包 CI 通过不等于对应系统的 Blender 运行通过。
+
+`rigging_workflow/` 是当前插件，`skills/blender-rigging/` 是唯一当前技能。`work/`、`tools/`、`hrig_paths.py` 和根目录 `SOURCE_MAP.json` 为保留的早期 SDK 历史来源，不要与当前插件混装。
+
+[变更记录](CHANGELOG.md) · [第三方声明](THIRD_PARTY_NOTICES.md) · [许可证](LICENSE)

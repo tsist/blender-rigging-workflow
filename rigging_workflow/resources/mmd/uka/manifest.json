@@ -1,0 +1,39 @@
+{
+  "schema": "c94.retarget.samples.v1",
+  "sample": "Uka source PMX",
+  "author": "Nagoya Institute of Technology / Moonshot R&D Goal 1 Avatar Symbiotic Society",
+  "license": "CC BY 4.0",
+  "license_url": "https://creativecommons.org/licenses/by/4.0/legalcode",
+  "attribution_file": "ATTRIBUTION.md",
+  "repository": "https://github.com/mmdagent-ex/uka",
+  "commit": "659f0d1a740fec68bb2817dc9c694a35e7a15f12",
+  "source": "https://raw.githubusercontent.com/mmdagent-ex/uka/659f0d1a740fec68bb2817dc9c694a35e7a15f12/MS_Uka.pmx",
+  "file": "MS_Uka.pmx",
+  "bytes": 4217254,
+  "expected_bytes": 4217254,
+  "git_blob": "548a5b8aae503dcdf850ab1ae29598cf44f01273",
+  "expected_git_blob": "548a5b8aae503dcdf850ab1ae29598cf44f01273",
+  "sha256": "6fbfff5cfb921e89df93d68a55dfa1549875d743a9d5e155272cb9737520d297",
+  "integrity": "pass",
+  "download_job": "20261111-002330-cafb14db",
+  "download_backend": "aria2",
+  "download_terminal": "complete",
+  "actual_pmx_counts": {
+    "bones": 302,
+    "vertices": 49955
+  },
+  "readme_counts": {
+    "bones": 301,
+    "vertices": 49951
+  },
+  "notes": [
+    "PMX counts differ from upstream README; bytes match the fixed official Git blob",
+    "Textures are not included; this is a source skeleton/IK reference",
+    "Native IK/source validation is limited to the documented local fixtures; no arbitrary PMX or full artistic guarantee"
+  ],
+  "historical_acquisition_paths": {
+    "attribution_file": "F:\\Blender AI\\runtime\\audit\\rigging-retargeting-calibration-20261110-v003\\samples\\uka\\ATTRIBUTION.md",
+    "file": "F:\\Blender AI\\runtime\\audit\\rigging-retargeting-calibration-20261110-v003\\samples\\uka\\MS_Uka.pmx"
+  },
+  "upstream_license_guideline": "UPSTREAM-LICENSE-AND-GUIDELINE.md"
+}

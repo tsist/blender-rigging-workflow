@@ -1,0 +1,16 @@
+{
+  "scope": "Existing verified camera backend identity; optional runtime is external, not bundled or installed here",
+  "BACKEND_ID": "mmd_tools",
+  "VERIFIED_BACKEND_VERSION": "4.5.14",
+  "EXPECTED_BACKEND_FILES": {
+    "blender_manifest.toml": "da7bd4c627d8ec877c3e8e227454f350ead17d5a46219a84f87d578b763f673f",
+    "LICENSE": "3972dc9744f6499f0f9b2dbf76696f2ae7ad8af9b23dde66d6af86c9dfb36986",
+    "__init__.py": "8d519537dc321e6dc5b6c54a060c2966983b358ec7f81bb281f6829d9186228f",
+    "core/vmd/__init__.py": "cdf395d556219a66250a7193bb737e11535c15583b8d5c4d2170b632188f6131",
+    "core/vmd/importer.py": "18983eaa5cbd7d5830613390b7a9a774ea74cf971cedaeee77128fe5cae5eb5c",
+    "core/camera.py": "28c06ea0f4047dcc807972deef7bb3c1302d2a68bcd64d97a88dcf4d098fb8d8",
+    "properties/camera.py": "aa9bdda214c38f418928daca52225904a1b218e6fb0bca287d6b5d90243e6ef6",
+    "bpyutils.py": null,
+    "wheels/opencc_python_reimplemented-0.1.7-py2.py3-none-any.whl": "41b3b92943c7bed291f448e9c7fad4b577c8c2eae30fcfe5a74edf8818493aa6"
+  }
+}

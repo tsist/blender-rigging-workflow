@@ -21,12 +21,20 @@ def selected():
     if manifest['files'] != {n:s for n,s in actual.items() if n != 'exchange-runtime-manifest.json'}:
         raise ValueError('Runtime manifest differs from payload')
     path_files = set(snapshot['reviewed_workstation_path_files'])
+    allowed = set(json.loads((ROOT/'DISTRIBUTION-FILES.json').read_text(encoding='utf8'))['files'])
     result = []
+    seen = set()
     for p in ROOT.rglob('*'):
         rel = p.relative_to(ROOT)
-        if not p.is_file() or any(x in ('.git','__pycache__','dist','test-output') for x in rel.parts):
+        if not p.is_file() or any(x in ('.git','__pycache__','dist','test-output','runtime') for x in rel.parts) or p.suffix.lower() == '.log':
             continue
-        name, data = rel.as_posix(), p.read_bytes()
+        name = rel.as_posix()
+        if name not in allowed:
+            raise ValueError('Unregistered distribution file: '+name)
+        if p.is_symlink() or not p.resolve().is_relative_to(ROOT.resolve()):
+            raise ValueError('External or symbolic distribution file: '+name)
+        seen.add(name)
+        data = p.read_bytes()
         if p.suffix.lower() in ('.pyc','.blend','.blend1','.npz','.exe','.dll') or p.name in ('AGENTS.md','.env','secrets.json'):
             raise ValueError('Excluded file: '+name)
         if p.suffix.lower() == '.pmx':
@@ -36,13 +44,15 @@ def selected():
             text = data.decode('utf-8-sig')
             if p.suffix == '.py':
                 ast.parse(text,filename=name)
-            if re.search(r'gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----',text):
+            if re.search(r'(?<![A-Za-z0-9_])(?:gh[pousr]_[A-Za-z0-9]{30,}|github_pat_[A-Za-z0-9_]{40,}|sk-(?:proj-|svcacct-)?[A-Za-z0-9_-]{20,}|(?:AKIA|ASIA)[A-Z0-9]{16}|xox[baprs]-[A-Za-z0-9-]{12,}|-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----)',text):
                 raise ValueError('Sensitive content: '+name)
-            if re.search(r'[FC]:[/\\]+(?:Users|Blender AI)',text):
+            if re.search(r'(?<![A-Za-z0-9_])[A-Za-z]:[/\\]+|/(?:home|Users)/[A-Za-z0-9_.-]+/',text):
                 package_rel = name.removeprefix('rigging_workflow/')
                 if not name.startswith('rigging_workflow/') or package_rel not in path_files or sha(data) != expected[package_rel]:
                     raise ValueError('Unexpected workstation path: '+name)
         result.append((name,data))
+    if seen != allowed:
+        raise ValueError('Distribution inventory missing files: '+', '.join(sorted(allowed-seen)))
     return sorted(result)
 
 def verify_archive(path,entries):

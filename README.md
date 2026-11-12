@@ -26,7 +26,7 @@ The [release](https://github.com/tsist/blender-rigging-workflow/releases/tag/v0.
 
 The native Windows review exercised a real 53,598-point binding input, six existing-project warm/cold paths, face and short physical clips, real background queue success/failure/cancellation, visible GUI interaction and isolated native installation. [Validation](docs/VALIDATION.md) distinguishes technical behavior, visual quality and untested scope. These are named sample results, not all-input or all-branch coverage.
 
-This release preserves the reviewed runtime payload **byte for byte**. A few original path defaults and provenance records describe the test workstation: configure your own CLI / MMD Tools / OpenCC paths in the existing panels. Private audit contents are not uploaded. Package-internal README/notices retain the state of the original local snapshot; this repository's current publication status and limitations are recorded in [PUBLICATION.md](docs/PUBLICATION.md).
+This release preserves the reviewed runtime payload **byte for byte**. A few original path defaults and provenance records describe the test workstation: configure your own CLI / MMD Tools / OpenCC paths in the existing panels. Private audit contents are not uploaded. All package-internal snapshot documents and manifest scope fields retain the state of the original local snapshot; this repository's current publication status and limitations are recorded in [PUBLICATION.md](docs/PUBLICATION.md).
 
 The release remains a **prerelease**: runtime evidence covers Windows / Blender 5.2.1, not cross-platform production qualification. Source packaging CI on Linux does not certify Blender runtime support there.
 

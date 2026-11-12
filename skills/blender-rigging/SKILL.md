@@ -5,7 +5,7 @@ description: 使用同一角色工作台维护人形骨架、体积蒙皮、面�
 
 # Blender 骨骼与角色工作台
 
-配套运行包为0.40.0 local-r3，公开仓库[blender-rigging-workflow](https://github.com/tsist/blender-rigging-workflow)，发行版0.40.0-r3。本技能是唯一便携入口，不携带原工作站、角色或私有审计。人工、AI与公共CLI共用运行核心；不要安装历史SDK目录冒充当前产品。
+配套运行包为0.40.0 local-r3，公开仓库[blender-rigging-workflow](https://github.com/tsist/blender-rigging-workflow)，预发布版0.40.0-r3。本技能是唯一便携入口，不携带原工作站、角色或私有审计。人工、AI与公共CLI共用运行核心；不要安装历史SDK目录冒充当前产品。
 
 ## 先确认目标与环境
 

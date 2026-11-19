@@ -65,8 +65,8 @@ def check(profile, source, job=None):
         raise Failure('CONFLICT', 'Driver profile source SHA256 mismatch')
     if bpy.context.preferences.filepaths.use_scripts_auto_execute:
         raise Failure('UNSUPPORTED', 'Driver profile requires automatic Python execution disabled')
-    if tuple(bpy.app.version) != (5, 2, 1):
-        raise Failure('UNSUPPORTED', 'NATIVE_SIMPLE_V1 is validated for Blender 5.2.1')
+    if tuple(bpy.app.version) not in ((5, 2, 1), (5, 3, 0)):
+        raise Failure('UNSUPPORTED', 'NATIVE_SIMPLE_V1 is validated for Blender 5.2.1 and 5.3.0')
     rows, handles = inventory()
     if len(rows) != profile['driver_count'] or sha(rows) != profile['inventory_sha256']:
         raise Failure('CONFLICT', 'Driver inventory differs from profile')

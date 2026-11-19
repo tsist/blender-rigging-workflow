@@ -1,7 +1,7 @@
 {
   "schema": "c94.exchange-runtime.package.v1",
   "files": {
-    "__init__.py": "dab3eae014d88e41569767e5756dab73b051e2568a2e8139dbeda3706e2673ba",
+    "__init__.py": "bf96de247d74f6f04a559cf678e846da995aa486636a0e79ff7e9e03f396743d",
     "accessory_chains.py": "5662f7f3baaeae487cb2f2004d783483cc34bfc621912ad720587fd6a27686b9",
     "accessory_ui.py": "4d919a98781f7509bb3293fc3249b09c3daaf152d9c89b54867c50b4ebb08379",
     "AI-CALLS.md": "73360eefd6b82c0a35f788b08ccc02e657b20293fd7e68838b4a8aedc7c903ab",
@@ -24,7 +24,7 @@
     "exchange_runtime/contract.py": "a18af530316171a41bed0a736402d6288e691229d109b6fee0fd197c7620e7a3",
     "exchange_runtime/core.py": "483758fa81bba95914b4afd8d32d17cdc31a32063aaa8ba9ef9ff591f998fd1a",
     "exchange_runtime/driver_math.py": "ad08a574abd00757de2ceff98a33191ab4027de4c019d56c7f12256762c47033",
-    "exchange_runtime/driver_policy.py": "e0253c10fda9dfd912de4e5abf2a801ee9beab3782729af1012796a6fedb65d1",
+    "exchange_runtime/driver_policy.py": "51d6e85259f0625755a7cc3145c0fef6de8e4ac21dc4bffbbdbc26b646510d82",
     "exchange_runtime/fbx_compat.py": "9df0dd06ab2a1aef206b41af0fbed0f36b2f05314cc9b62705b0fb2fb51f696e",
     "exchange_runtime/format_io.py": "0cd9f88cfc514da669d0df406e2f23fd93394c5bcdd16a51b43dd8a8c95ce4ec",
     "exchange_runtime/id_inspection.py": "7116a789fcfd4dec93a92bc47a8c7add477dfae47a0519ed3e63dd7679f9d4cc",
@@ -180,7 +180,7 @@
     "volume_domains.py": "49194d64596d6130b252b7e30b5eca224c2825865cfc604f4376cd3dfcf02f73",
     "weight_paint.py": "0a11b730f15bb025759197fc5cdf93b55bb9969809722afe2cf80e958ddd608e",
     "workflow_entry.py": "4d7e8f6c8cdc4f76339f83afff7fb485e43719dcdfa358a966bfaf24910a73ae",
-    "workflow_navigation.py": "198fef660c3a845baf4ddbd27d1b9513a6ed4dbfbf84c92268039aa75cc75c92",
+    "workflow_navigation.py": "f089f80887a8fa0165469147ea648f4e6a2f3b0919aed7f7b32e8706a23a95fe",
     "workflow_ui.py": "bf598f6662d0f6f5dd3b9b765577a8a3e7a7247f10fc0dc7f698a07f6024b061",
     "workspace_setup.py": "26e10a3f99ec788c1795dd2becdc25fb8d0884accea4c216c94c85e042099391"
   },
@@ -190,5 +190,5 @@
     "build": "9e2066aef7ef",
     "offline": true
   },
-  "scope": "0.40.0 private local stability and native workflow UI package; existing capabilities only; not publicly released"
+  "scope": "0.40.1 Windows Blender 5.3 compatibility prerelease"
 }

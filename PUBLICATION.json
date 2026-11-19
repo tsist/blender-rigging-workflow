@@ -1,12 +1,17 @@
 {
-  "release": "0.40.0-r3",
-  "runtime_version": "0.40.0 local-r3",
+  "release": "0.40.1",
+  "runtime_version": "0.40.1",
   "license": "GPL-3.0-or-later",
-  "status": "reviewed_workstation_snapshot_prerelease",
+  "status": "blender53_compatibility_prerelease",
   "verified_runtime": {
     "os": "Windows",
     "blender": "5.2.1 LTS",
-    "full_arbitrary_input_or_artistic_acceptance": false
+    "full_arbitrary_input_or_artistic_acceptance": false,
+    "blender_5_3_0": {
+      "os": "Windows",
+      "build": "02f0899d78e3",
+      "scope": "Isolated installation, workbench entry, pose and skin deformation, and native simple drivers"
+    }
   },
   "legacy_snapshot": {
     "release": "0.1.0-dev1",
@@ -16,8 +21,8 @@
     "directory": "rigging_workflow",
     "file_count": 183,
     "python_count": 165,
-    "accepted_zip_sha256": "e2148a2a14ae1e9e4332120fb24f0f105803c8a89078129784cd9416bde7e59c",
-    "manifest_sha256": "bb3a2179a7855116c749db6cf33911a08133292139b56ef28a7b1f43d94f0959",
+    "accepted_zip_sha256": "e77e025ad35cee1e600ebe1be1f1e16287ff03820f7feff3c0357357168a4a78",
+    "manifest_sha256": "31e4630e852384c147fe37b6a7738fee7de700c807be8187cec90904163e4b07",
     "reviewed_workstation_path_files": [
       "exchange_worker.py",
       "resources/mmd/uka/manifest.json",
@@ -29,7 +34,7 @@
       "THIRD_PARTY_NOTICES.md"
     ],
     "files": {
-      "__init__.py": "dab3eae014d88e41569767e5756dab73b051e2568a2e8139dbeda3706e2673ba",
+      "__init__.py": "bf96de247d74f6f04a559cf678e846da995aa486636a0e79ff7e9e03f396743d",
       "accessory_chains.py": "5662f7f3baaeae487cb2f2004d783483cc34bfc621912ad720587fd6a27686b9",
       "accessory_ui.py": "4d919a98781f7509bb3293fc3249b09c3daaf152d9c89b54867c50b4ebb08379",
       "AI-CALLS.md": "73360eefd6b82c0a35f788b08ccc02e657b20293fd7e68838b4a8aedc7c903ab",
@@ -46,14 +51,14 @@
       "elastic.py": "026f45029251f0a97d60db72c873bd26249ec8e15359bc9fe1f6b35236701d84",
       "elastic_solver.py": "204632b2a6d82ae625540db229e6fc0c4679e47f01ac13d340333ae58ff3a18e",
       "elastic_ui.py": "7e87a312752df72686c124490cf120d004c44c5fa7401bb53acdba269aefd6c0",
-      "exchange-runtime-manifest.json": "bb3a2179a7855116c749db6cf33911a08133292139b56ef28a7b1f43d94f0959",
+      "exchange-runtime-manifest.json": "31e4630e852384c147fe37b6a7738fee7de700c807be8187cec90904163e4b07",
       "exchange_api.py": "a72f97eff3b45f6b6659444c42b3ce68d0d6ec54f1fa78e8ecc4e12834e749fa",
       "exchange_runtime/__init__.py": "224bc40bd416d9d4750d0fa3daeecedba2dde4dc6af682305b483850cd5504c6",
       "exchange_runtime/clock_fbx.py": "ed5f96daac555e4beb93055085e5256ebf25f0b034bf116e601246c13ac395fa",
       "exchange_runtime/contract.py": "a18af530316171a41bed0a736402d6288e691229d109b6fee0fd197c7620e7a3",
       "exchange_runtime/core.py": "483758fa81bba95914b4afd8d32d17cdc31a32063aaa8ba9ef9ff591f998fd1a",
       "exchange_runtime/driver_math.py": "ad08a574abd00757de2ceff98a33191ab4027de4c019d56c7f12256762c47033",
-      "exchange_runtime/driver_policy.py": "e0253c10fda9dfd912de4e5abf2a801ee9beab3782729af1012796a6fedb65d1",
+      "exchange_runtime/driver_policy.py": "51d6e85259f0625755a7cc3145c0fef6de8e4ac21dc4bffbbdbc26b646510d82",
       "exchange_runtime/fbx_compat.py": "9df0dd06ab2a1aef206b41af0fbed0f36b2f05314cc9b62705b0fb2fb51f696e",
       "exchange_runtime/format_io.py": "0cd9f88cfc514da669d0df406e2f23fd93394c5bcdd16a51b43dd8a8c95ce4ec",
       "exchange_runtime/id_inspection.py": "7116a789fcfd4dec93a92bc47a8c7add477dfae47a0519ed3e63dd7679f9d4cc",
@@ -209,7 +214,7 @@
       "volume_domains.py": "49194d64596d6130b252b7e30b5eca224c2825865cfc604f4376cd3dfcf02f73",
       "weight_paint.py": "0a11b730f15bb025759197fc5cdf93b55bb9969809722afe2cf80e958ddd608e",
       "workflow_entry.py": "4d7e8f6c8cdc4f76339f83afff7fb485e43719dcdfa358a966bfaf24910a73ae",
-      "workflow_navigation.py": "198fef660c3a845baf4ddbd27d1b9513a6ed4dbfbf84c92268039aa75cc75c92",
+      "workflow_navigation.py": "f089f80887a8fa0165469147ea648f4e6a2f3b0919aed7f7b32e8706a23a95fe",
       "workflow_ui.py": "bf598f6662d0f6f5dd3b9b765577a8a3e7a7247f10fc0dc7f698a07f6024b061",
       "workspace_setup.py": "26e10a3f99ec788c1795dd2becdc25fb8d0884accea4c216c94c85e042099391"
     }

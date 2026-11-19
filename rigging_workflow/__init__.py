@@ -5,7 +5,7 @@ import bpy
 bl_info = {
     'name': '角色绑定工作台',
     'author': 'Blender AI Project',
-    'version': (0, 40, 0),
+    'version': (0, 40, 1),
     'blender': (5, 2, 0),
     'location': 'View3D > Sidebar > 角色工作台',
     'category': 'Rigging',

@@ -2,8 +2,8 @@
 from pathlib import Path
 import argparse, ast, hashlib, json, re, shutil, zipfile
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.40.0-r3'
-ADDON_NAME = 'rigging_workflow-0.40.0-local-r3.zip'
+VERSION = '0.40.1'
+ADDON_NAME = 'rigging_workflow-0.40.1.zip'
 
 def sha(data):
     return hashlib.sha256(data).hexdigest()

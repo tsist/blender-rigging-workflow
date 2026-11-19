@@ -2,17 +2,17 @@
 
 [English](README.md)
 
-当前发布 **0.40.0-r3**，对应已验收的 0.40.0 local-r3 原始运行包。适用环境为 **Windows / Blender 5.2.1 LTS**。项目代码 GPL-3.0-or-later；第三方代码和参考资源分别保留原许可。
+当前预发布 **0.40.1**。在 **Windows / Blender 5.2.1 LTS / 5.3.0** 验证了安装、进入角色、蒙皮与姿态重开以及受限驱动策略。项目代码 GPL-3.0-or-later；第三方代码和参考资源分别保留原许可。
 
 在 **3D 视图 → N → 角色工作台** 进入。已有角色选择骨架并点击“进入角色”，新角色从准备与定位开始。38 个业务面板统一到角色状态、制作阶段和日常／进阶／开发层级，阶段可以直接跳转。
 
 ## 安装与技能
 
-从 [v0.40.0-r3 发布页](https://github.com/tsist/blender-rigging-workflow/releases/tag/v0.40.0-r3) 下载：
+从 [v0.40.1 发布页](https://github.com/tsist/blender-rigging-workflow/releases/tag/v0.40.1) 下载：
 
-- `rigging_workflow-0.40.0-local-r3.zip`：Blender 偏好设置 → 插件 → 从磁盘安装，然后启用。
-- `blender-rigging-skill-0.40.0-r3.zip`：唯一配套技能及便携参考说明。
-- `blender-rigging-workflow-0.40.0-r3-source.zip`：完整仓库源码。
+- `rigging_workflow-0.40.1.zip`：Blender 偏好设置 → 插件 → 从磁盘安装，然后启用。
+- `blender-rigging-skill-0.40.1.zip`：唯一配套技能及便携参考说明。
+- `blender-rigging-workflow-0.40.1-source.zip`：完整仓库源码。
 - `SHA256SUMS`：附件校验值。
 
 不要把完整源码 ZIP 当作 Blender 插件安装。先在独立配置中试用，自行保留旧工程与插件备份。仓库不会自动覆盖日常安装。
@@ -27,7 +27,7 @@
 
 ## 实际验证与限制
 
-本轮已完成具名支持范围的确认缺陷闭环，覆盖真实 53,598 点绑定输入、六类已有工程热／冷开、面部、胸臀／侧发／技术裙片、真实后台成功／坏项／取消、实际可见界面，以及最终包原生隔离安装。技术、视觉与素材质量分别判断，详见 [验收说明](docs/VALIDATION.md)。
+0.40.0-r3 在 5.2.1 的既有验收覆盖真实 53,598 点绑定输入、六类已有工程热／冷开、面部、胸臀／侧发／技术裙片、真实后台成功／坏项／取消、实际可见界面，以及最终包原生隔离安装。技术、视觉与素材质量分别判断，详见 [验收说明](docs/VALIDATION.md)。
 
 发布包保持已验收运行代码与资源逐字节一致；少量路径默认值和来源记录仍描述原测试机。换机器时须在现有面板中选择真实 CLI、MMD Tools 与 OpenCC 路径，不会自动下载依赖。包内历史文档的“尚未公开发布”指原本地快照形成时的状态；当前发布以 [公开分发说明](docs/PUBLICATION.md) 为准。
 

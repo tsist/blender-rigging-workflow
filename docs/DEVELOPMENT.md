@@ -1,6 +1,6 @@
 # 当前开发与历史范围
 
-当前主产品是 `rigging_workflow/` 0.40.0-r3，唯一技能是 `skills/blender-rigging/`。原0.1.0-dev1的SDK目录、hrig_paths及根SOURCE_MAP保留为来源历史，不是需要共同安装的组件，也不是新版本仍待完成的任务清单。
+当前主产品是 `rigging_workflow/` 0.40.1，唯一技能是 `skills/blender-rigging/`。原0.1.0-dev1的SDK目录、hrig_paths及根SOURCE_MAP保留为来源历史，不是需要共同安装的组件，也不是新版本仍待完成的任务清单。
 
 本次整顿完成既有支持范围的确认缺陷闭环与原生角色工作台。后续应按具体输入、可复现问题和支持表开展，不从历史pending文字自动重启旧任务。没有恢复GLB／密集Key交换研究，没有扩展任意Rigify／VRM／UE骨架，也没有实现源NLA最终合成。
 

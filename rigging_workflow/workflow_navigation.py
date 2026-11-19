@@ -2,6 +2,7 @@
 import textwrap
 import bpy
 from bpy.props import EnumProperty, PointerProperty
+from . import bl_info
 
 OPTIONS = 'c94_workspace_options_v1'
 _REGISTERED = []
@@ -256,7 +257,8 @@ class C94NAV_PT_Workspace(bpy.types.Panel):
             layout.prop(opts, 'motion_source', text='来源')
         _lines(layout, HINTS[stage(context)])
         if opts.level == 'DEVELOPER':
-            layout.label(text='插件 0.40.0 · 场景 ' + context.scene.name)
+            version = '.'.join(str(part) for part in bl_info['version'])
+            layout.label(text='插件 ' + version + ' · 场景 ' + context.scene.name)
             layout.label(text='模式 ' + context.mode + ' · 阶段 ' + stage(context))
 
 

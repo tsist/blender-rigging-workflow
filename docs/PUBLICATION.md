@@ -1,10 +1,10 @@
 # 公开分发、原始快照与复现
 
-仓库更新版为 **0.40.0-r3**，运行插件内部版本为 **0.40.0 local-r3**。它保留原验收快照，不在上传时修改运行逻辑。项目作者代码以GPL-3.0-or-later发布，原有历史标签／源码保留。
+当前发布版与插件内部版本均为 **0.40.1**。该版本基于 0.40.0-r3，仅更新包版本、工作台版本显示和既有受限驱动策略的 Blender 5.3.0 兼容。项目作者代码以 GPL-3.0-or-later 发布。
 
 ## 原始字节与本机路径
 
-183个运行文件、165个Python及runtime manifest均与本轮已验收包一致。包内全部随包文档（包括README、重定向指南、REVIEW-ACCEPTANCE及第三方声明）和runtime manifest状态中的“本机／尚未公开发布”均属于原快照形成时的记录；当前公开状态以仓库根README、PUBLICATION.json及本页为准。
+183 个运行文件及运行时清单与本版验收包逐文件一致。运行包原有的验收文档保留 0.40.0-r3 当时的完整绑定验证。当前发行状态使用仓库根 README 和 PUBLICATION.json。
 
 八个声明文件包含原测试机路径默认值或来源路径，PUBLICATION.json记录其路径名单与整个文件的SHA。它们不包含角色数据、原始审计正文、账号凭据或密钥。运行时可编辑的CLI／MMD／OpenCC路径须由使用者明确选择；来源路径不代表可访问公共资产。没有把私有模板、定位图谱、角色、字体、纹理或样本动作加入发布。
 
@@ -20,7 +20,7 @@ pycpd为MIT，原许可证随文件保留。MMD Tools／OpenCC／Blender／blend
 
 在干净checkout中运行 `python -B scripts/build_release.py`，可生成源码、技能和与原包成员逐字节一致的插件ZIP及SHA256SUMS。压缩容器时间等元数据不同，重建ZIP本身的SHA可能不同，不能冒充原已验压缩包SHA。
 
-维护者发布时使用 `--accepted-addon <已验ZIP绝对路径>`：先验证原ZIP SHA、唯一安全成员集合和所有183文件字节，再复制原包作为安装附件。原已验ZIP的SHA在PUBLICATION.json与VALIDATION.md中。输出目录非空时不覆盖已有附件。
+维护者发布时使用 `--accepted-addon <已验 ZIP 绝对路径>` 核对发行 ZIP SHA、唯一成员集合和所有 183 个文件。当前 ZIP 的 SHA 记录于 PUBLICATION.json。打包输出使用新的空目录。
 
 源码CI只做解析、固定清单、禁止内容和归档完整性检查。它不启动Blender，不代替本机GUI／角色验收。`scripts/smoke_blender.py`与`scripts/smoke_addon_archive.py`可在独立factory-startup Blender执行有限注册检查；禁止打开用户当前工程或把注册成功称作制作质量通过。
 

@@ -2,15 +2,15 @@
 
 [简体中文](README.zh-CN.md)
 
-**0.40.0-r3** — a reviewed Windows / Blender **5.2.1 LTS** runtime snapshot and its single companion agent skill. GPL-3.0-or-later for project code; bundled third-party files retain their own licenses.
+**0.40.1** — a Windows prerelease with compatibility checks on Blender **5.2.1 LTS** and **5.3.0**. The project and its companion skill use GPL-3.0-or-later. Bundled third-party files retain their own licenses.
 
 The current add-on unifies 38 business panels under **3D View → N → 角色工作台** (Character Workbench), with character context, freely selectable production stages, and Daily / Advanced / Developer levels. Existing supported rigs, weights, Shape Keys, Actions, slots and NLA are preserved within the documented operations.
 
 ## Install
 
-Download [rigging_workflow-0.40.0-local-r3.zip](https://github.com/tsist/blender-rigging-workflow/releases/tag/v0.40.0-r3), install it from **Preferences → Add-ons → Install from Disk**, and enable it. The repository source ZIP is not the add-on installer.
+Install and enable `rigging_workflow-0.40.1.zip` through **Preferences → Add-ons → Install from Disk**. [Release ZIPs](https://github.com/tsist/blender-rigging-workflow/releases/tag/v0.40.1)
 
-The [release](https://github.com/tsist/blender-rigging-workflow/releases/tag/v0.40.0-r3) also includes the portable `blender-rigging` skill, full source and SHA256SUMS. Installation is manual; this repository does not modify an existing Blender installation.
+The release includes the portable `blender-rigging` skill, full source and SHA256SUMS.
 
 ## What is available
 
@@ -26,9 +26,9 @@ The [release](https://github.com/tsist/blender-rigging-workflow/releases/tag/v0.
 
 The native Windows review exercised a real 53,598-point binding input, six existing-project warm/cold paths, face and short physical clips, real background queue success/failure/cancellation, visible GUI interaction and isolated native installation. [Validation](docs/VALIDATION.md) distinguishes technical behavior, visual quality and untested scope. These are named sample results, not all-input or all-branch coverage.
 
-This release preserves the reviewed runtime payload **byte for byte**. A few original path defaults and provenance records describe the test workstation: configure your own CLI / MMD Tools / OpenCC paths in the existing panels. Private audit contents are not uploaded. All package-internal snapshot documents and manifest scope fields retain the state of the original local snapshot; this repository's current publication status and limitations are recorded in [PUBLICATION.md](docs/PUBLICATION.md).
+0.40.1 updates the package version and admits Blender 5.3.0 to the supported native simple-driver profile. Configure your own CLI, MMD Tools and OpenCC paths. The detailed runtime snapshot review applies to 0.40.0-r3. [Publication details](docs/PUBLICATION.md)
 
-The release remains a **prerelease**: runtime evidence covers Windows / Blender 5.2.1, not cross-platform production qualification. Source packaging CI on Linux does not certify Blender runtime support there.
+The 5.3.0 checks cover clean installation, workspace activation, saved rig and skin deformation, and the native simple-driver profile. The supplied character workflow and its optional MMD dependencies still have their detailed qualification on 5.2.1. [Validation](docs/VALIDATION.md)
 
 ## Repository layout
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.40.1 — 2026-11-19
+
+- Verified isolated install, workbench activation, pose and weighted deformation after independent reopen in Windows Blender 5.2.1 and 5.3.0.
+- Admitted Blender 5.3.0 to the explicit native simple-driver policy. Existing inventory, source hash, expression and auto-execution checks still apply.
+
 ## 0.40.0-r3 — 2026-11-12
 
 - Current 183-file / 165-Python C94 runtime snapshot, preserved byte for byte from reviewed local-r3.

@@ -1,6 +1,6 @@
 # SPDX-License-Identifier: GPL-3.0-or-later
 """PMX/VMD file entry over public blenderctl jobs; no GUI MMD Tools import."""
-import hashlib,json,os,re,shutil,subprocess,time,uuid,zipfile
+import hashlib,json,os,re,shutil,subprocess,sys,time,uuid,zipfile
 from pathlib import Path
 import bpy
 from bpy.props import BoolProperty,EnumProperty,IntProperty,PointerProperty,StringProperty
@@ -91,11 +91,12 @@ def prepare_request(settings):
     primary=settings.get('primary_clip_id','dance').strip()
     require(primary and primary not in {row['id'] for row in clips},'主片段ID须非空且不与额外片段重复')
     require(vmd not in {Path(row['vmd']) for row in clips},'同一VMD仅登记一次，重复请求请移除：'+str(vmd))
-    cli=_absolute_file(settings.get('cli_path',''),'.ps1')
+    native=sys.platform.startswith('linux')
+    cli=Path(bpy.app.binary_path).resolve(strict=True) if native else _absolute_file(settings.get('cli_path',''),'.ps1')
     output=Path(bpy.path.abspath(settings.get('output_root','')))
     require(output.is_absolute() and str(settings.get('output_root','')).strip(),'请明确选择绝对后台输出根目录')
     output.mkdir(parents=True,exist_ok=True)
-    entry_id=uuid.uuid4().hex;packet=output/('packet-'+entry_id);packet.mkdir(exist_ok=False)
+    entry_id=uuid.uuid4().hex;packet=output/('packet-'+entry_id);packet.mkdir(mode=0o700 if native else 0o777,exist_ok=False)
     package=Path(__file__).resolve().parent;runtime=packet/'runtime/rigging_workflow'
     # Only source code/legal files. No current .blend, private C94/target asset,
     # texture, audio or copied user scene enters the background packet.
@@ -120,6 +121,10 @@ def prepare_request(settings):
     files=[worker,archive,manifest,runtime/'mmd_source_backend.py',runtime/'retarget_mmd_standard.py',chosen['pmx'],vmd,
         *chosen['resource_dependencies'],*[row['vmd'] for row in clips],inspection['manifest'],inspection['wheel']['file'],
         *[row['file'] for row in inspection['files'].values()]]
+    if native:
+        files.extend(sorted(path for path in runtime.rglob('*') if path.is_file()))
+        files.extend(sorted(path for path in Path(inspection['addon_path']).rglob('*')
+                            if path.is_file() and '__pycache__' not in path.parts))
     resources={str(Path(path).resolve(strict=True)):_descriptor(path) for path in files}
     request={'schema_version':'1.0','command':'extension.run','params':{'resources':list(resources.values()),
         'manifest':{'trust':'execute_local_python_without_sandbox','script':_descriptor(worker),'params':params,
@@ -128,12 +133,119 @@ def prepare_request(settings):
     request_path=packet/'request.json';request_path.write_text(json.dumps(request,ensure_ascii=False,indent=2),encoding='utf-8')
     return {'entry_id':entry_id,'packet':str(packet),'request':str(request_path),'cli':str(cli),'shell':settings.get('shell_path') or '',
         'jobs_root':str(output/'cli-jobs'),'timeout':int(settings.get('timeout_seconds',300)),
-        'mode':settings['mode'],'hide_source_render':settings.get('hide_source_render',True),'request_document':request}
+        'mode':settings['mode'],'hide_source_render':settings.get('hide_source_render',True),'request_document':request,'native':native}
+
+_LINUX_BOOTSTRAP = """
+import hashlib,json,runpy,sys,threading
+from pathlib import Path
+packet=Path(sys.argv[sys.argv.index('--')+1])
+request_bytes=(packet/'request.json').read_bytes()
+if hashlib.sha256(request_bytes).hexdigest()!=sys.argv[sys.argv.index('--')+2]:
+    raise ValueError('MMD source request changed')
+request=json.loads(request_bytes)
+from contextlib import ExitStack
+job=packet/'job'
+worker=packet/'runtime/rigging_workflow/retarget_mmd_import_worker.py'
+sys.path.insert(0,str(worker.parent.parent))
+sys.dont_write_bytecode=True
+sys.pycache_prefix=str(packet/'private-pycache')
+from rigging_workflow.linux_file_guard import LinuxFileGuard,LinuxGuardMonitor
+params=request['params']['manifest']['params']
+if params['package']!=str(worker.parent):
+    raise ValueError('MMD source package mismatch')
+with LinuxGuardMonitor() as monitor, ExitStack() as stack:
+    request_guard=stack.enter_context(LinuxFileGuard(packet/'request.json',monitor=monitor))
+    if request_guard.sha256()!=sys.argv[sys.argv.index('--')+2]:
+        raise ValueError('MMD source request changed before lease acquisition')
+    guards=[request_guard]
+    for row in request['params']['resources']:
+        guard=stack.enter_context(LinuxFileGuard(row['file'],monitor=monitor))
+        if guard.sha256()!=row['expected_sha256']:
+            raise ValueError('MMD source resource changed: '+row['file'])
+        guards.append(guard)
+    def check():
+        for guard in guards:guard.check()
+    check()
+    stop=threading.Event()
+    failures=[]
+    def watch():
+        while not stop.wait(0.1):
+            try:
+                check()
+            except Exception as exc:
+                failures.append(exc)
+                return
+    watcher=threading.Thread(target=watch,daemon=True)
+    watcher.start()
+    try:
+        runpy.run_path(str(worker),init_globals={'job_directory':str(job),'parameters':params})
+    finally:
+        stop.set()
+        watcher.join()
+    if failures:raise failures[0]
+    check()
+# Only successful guard-close plus worker success can produce exit code zero.
+"""
+
+def _submit_linux(prepared,began,prepared_at):
+    packet=Path(prepared['packet']);directory=packet/'job';directory.mkdir(mode=0o700)
+    folders={key:packet/subdir for key,subdir in (
+        ('HOME','home'),('XDG_CONFIG_HOME','xdg-config'),('XDG_CACHE_HOME','xdg-cache'),
+        ('XDG_DATA_HOME','xdg-data'),('BLENDER_USER_RESOURCES','blender-user'),
+        ('BLENDER_USER_CONFIG','blender-config'),('BLENDER_USER_SCRIPTS','blender-scripts'),
+        ('BLENDER_USER_EXTENSIONS','blender-extensions'),('BLENDER_USER_DATAFILES','blender-datafiles'),
+        ('TMPDIR','tmp'))}
+    for folder in folders.values():folder.mkdir(mode=0o700)
+    env={**{key:str(folder) for key,folder in folders.items()},
+         'LANG':'C.UTF-8','LC_ALL':'C.UTF-8','PATH':os.defpath}
+    with (directory/'worker.log').open('xb') as log:
+        process=subprocess.Popen([prepared['cli'],'--factory-startup','--background',
+            '--disable-autoexec','--offline-mode','--python-exit-code','1','--python-expr',
+            _LINUX_BOOTSTRAP,'--',str(packet),_sha(prepared['request'])],cwd=str(packet),stdin=subprocess.DEVNULL,
+            stdout=log,stderr=subprocess.STDOUT,shell=False,env=env)
+    return {**prepared,'id':prepared['entry_id'],'directory':str(directory),'process':process,
+        'deadline':time.monotonic()+prepared['timeout'],'cache':{'state':'running'},
+        'append_receipt':None,'submit_seconds':time.perf_counter()-began,
+        'prepare_seconds':prepared_at-began}
+
+def _poll_linux(task,directory):
+    process=task['process'];cache=task['cache']
+    if cache.get('state') in TERMINAL:return cache
+    code=process.poll()
+    if code is None:
+        if time.monotonic()>=task['deadline']:
+            task.setdefault('stopping','timed_out');process.kill()
+        return cache
+    if task.get('stopping'):
+        cache['state']=task['stopping'];return cache
+    if code!=0:
+        cache.update(state='failed',exit_code=code);return cache
+    try:
+        receipt=_small_json(directory/'output-import-receipt.json',4*1024*1024)
+        require(receipt.get('ok') is True and receipt.get('entry_id')==task['id'],'导入回执身份不符')
+        rows=receipt['artifacts']
+        outputs=[]
+        for key,name in (('blend','output-source.blend'),('profile','output-source-profile.json'),
+                         ('descriptor','output-source-descriptor.json')):
+            row=rows[key];path=directory/name
+            require(row['file']==str(path) and not path.is_symlink() and _sha(path)==row['sha256'],
+                    '后台输出身份不符：'+name)
+            outputs.append(row)
+        path=directory/'output-import-receipt.json'
+        outputs.append({'file':str(path),'sha256':_sha(path)})
+        with (directory/'result.json').open('x',encoding='utf-8') as stream:
+            json.dump({'ok':True,'job_id':task['id'],'data':{'outputs':outputs}},stream)
+        cache['state']='succeeded'
+    except (OSError,ValueError,KeyError,TypeError) as exc:
+        cache.update(state='failed',error=str(exc))
+    return cache
 
 def submit(settings):
     global _TASK
     require(_TASK is None,'请先处理并释放当前导入任务；公共CLI输出始终保留')
     began=time.perf_counter();prepared=prepare_request(settings);prepared_at=time.perf_counter()
+    if prepared['native']:
+        _TASK=_submit_linux(prepared,began,prepared_at);return _TASK
     response=_cli(prepared['cli'],prepared['shell'],prepared['jobs_root'],
         ['--timeout',str(prepared['timeout']),'--async','request',prepared['request']])
     job_id=response.get('job_id');require(isinstance(job_id,str) and re.fullmatch('[0-9a-f]{32}',job_id),'CLI缺少确切job ID')
@@ -148,6 +260,7 @@ def poll_once():
     """RAM cache only: no bpy evaluation, object scan, hash or CLI process."""
     if _TASK is None:return None
     directory=Path(_TASK['directory'])
+    if _TASK['native']:return _poll_linux(_TASK,directory)
     try:
         cache=_small_json(directory/'status.json')
         require(cache.get('job_id')==_TASK['id'],'状态job ID不符')
@@ -159,6 +272,11 @@ def poll_once():
 
 def cancel():
     require(_TASK is not None,'没有本入口提交的导入任务')
+    if _TASK['native']:
+        process=_TASK['process']
+        if process.poll() is None:
+            _TASK.setdefault('stopping','cancelled');process.kill()
+        return poll_once()
     result=_cli(_TASK['cli'],_TASK['shell'],_TASK['jobs_root'],['job','cancel',_TASK['id']])
     poll_once();return result
 
@@ -325,9 +443,9 @@ class C94MMDIMPORT_OT_action(bpy.types.Operator):
         try:
             if self.operation=='SUBMIT':
                 keys=('mode','pmx','vmd','resource_root','reference_acknowledged','primary_clip_id','clips_json','cli_path','shell_path','output_root','addon_path','opencc_wheel','timeout_seconds','hide_source_render')
-                task=submit({key:getattr(opts,key) for key in keys});opts.message='已提交公共CLI job '+task['id']
-            elif self.operation=='REFRESH':poll_once();opts.message='已读取公共CLI状态'
-            elif self.operation=='CANCEL':cancel();opts.message='已通过公共CLI请求取消，等待其终态；当前Scene保持'
+                task=submit({key:getattr(opts,key) for key in keys});opts.message=('已提交后台作业 ' if task['native'] else '已提交公共CLI job ')+task['id']
+            elif self.operation=='REFRESH':poll_once();opts.message='已读取后台作业状态' if _TASK and _TASK['native'] else '已读取公共CLI状态'
+            elif self.operation=='CANCEL':cancel();opts.message='已请求取消后台作业，等待终态；当前Scene保持' if _TASK['native'] else '已通过公共CLI请求取消，等待其终态；当前Scene保持'
             elif self.operation=='COLLECT':
                 appended=collect(context);profile=appended['profile']
                 missing=sum(len(clip.get('missing',{}).get('bone_channels',[]))+len(clip.get('missing',{}).get('morph_channels',[])) for clip in profile['clips'])
@@ -351,7 +469,9 @@ class C94MMDIMPORT_PT_panel(bpy.types.Panel):
             layout.label(text='Uka / CC BY 4.0；不是任意VMD的原模型')
         layout.prop(opts,'vmd');layout.prop(opts,'primary_clip_id');layout.prop(opts,'output_root')
         if advanced:
-            layout.prop(opts,'clips_json');layout.prop(opts,'cli_path');layout.prop(opts,'shell_path')
+            layout.prop(opts,'clips_json')
+            if not sys.platform.startswith('linux'):
+                layout.prop(opts,'cli_path');layout.prop(opts,'shell_path')
             layout.prop(opts,'addon_path');layout.prop(opts,'opencc_wheel');layout.prop(opts,'timeout_seconds');layout.prop(opts,'hide_source_render')
         else:layout.label(text='依赖路径与额外片段位于进阶',icon='INFO')
         row=layout.row();row.enabled=_TASK is None
@@ -387,6 +507,10 @@ def register():
 def unregister():
     global _OWNED,_TASK
     if bpy.app.timers.is_registered(_timer):bpy.app.timers.unregister(_timer)
+    if _TASK and _TASK.get('native'):
+        process=_TASK['process']
+        if process.poll() is None:process.kill()
+        process.wait()
     if _OWNED and hasattr(bpy.types.Scene,OPTIONS):delattr(bpy.types.Scene,OPTIONS)
     _OWNED=False;_TASK=None
     for cls in reversed(_REGISTERED):

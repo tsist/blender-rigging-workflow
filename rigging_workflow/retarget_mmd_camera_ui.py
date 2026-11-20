@@ -38,6 +38,8 @@ _TIMER_REGISTERED = False
 _CORE = None
 _CORE_PATH = None
 
+_LINUX = sys.platform.startswith('linux')
+_NATIVE_JOBS = {}
 _UI_DIR = Path(__file__).resolve().parent
 _WORKER_NAME = "retarget_mmd_camera_worker.py"
 _DEFAULT_CLI = r"F:\Blender AI\blenderctl.ps1"
@@ -386,8 +388,10 @@ def _request_document(opts, scene):
     _require(vmd.suffix.lower() == ".vmd", f"VMD 文件扩展名不是 .vmd：{vmd}")
     addon = _abs_path(opts.backend_path, "dir", "MMD Tools 目录")
     opencc = _abs_path(opts.opencc_path, "file", "OpenCC wheel")
-    cli_path = _abs_path(opts.cli_path, "file", "blenderctl.ps1")
+    cli_path = Path(bpy.app.binary_path).resolve(strict=True) if _LINUX else _abs_path(opts.cli_path, "file", "blenderctl.ps1")
     jobs_root = _abs_path(opts.jobs_root, "dir", "后台作业目录")
+    if _LINUX and opts.worker_path.strip():
+        raise RuntimeError("Linux 相机任务只运行随包提供的 worker")
     if opts.worker_path.strip():
         worker = _worker_path(opts)
     else:
@@ -470,6 +474,53 @@ def _request_document(opts, scene):
     }
 
 
+def _start_linux(opts, scene):
+    # Stage only fixed camera code; scene data never enters the packet.
+    from .retarget_mmd_import_ui import _launch_linux
+    doc, info = _request_document(opts, scene)
+    job_id = uuid.uuid4().hex
+    job = info["jobs_root"] / job_id
+    job.mkdir(mode=0o700)
+    package = job / "runtime" / "rigging_workflow"
+    package.mkdir(parents=True)
+    names = (_WORKER_NAME, "retarget_mmd_camera.py", "linux_file_guard.py", "linux_file_guard_failure.py")
+    for name in names:
+        shutil.copyfile(_UI_DIR / name, package / name)
+    # Explicit package avoids loading any installed package of the same name.
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    manifest = doc["params"]["manifest"]
+    manifest["params"]["core_module"] = str(package / "retarget_mmd_camera.py")
+    manifest["script"] = {"file": str(package / _WORKER_NAME), "expected_sha256": _sha256(package / _WORKER_NAME)}
+    resources, seen = [], set()
+    for row in doc["params"]["resources"]:
+        if row["file"] not in {str(info["worker"]), str(info["core"])}:
+            _add_resource(resources, seen, row["file"])
+    for path in [*package.iterdir(), *info["addon"].rglob("*")]:
+        if path.is_file() and "__pycache__" not in path.parts:
+            _add_resource(resources, seen, path)
+    doc["params"]["resources"] = resources
+    request = job / "request.json"
+    request.write_text(json.dumps(doc, ensure_ascii=False), encoding="utf-8")
+    process = _launch_linux({"packet":job, "cli":str(info["cli"]), "request":request}, job, "camera")
+    _NATIVE_JOBS[job] = {"process":process, "deadline":time.monotonic()+opts.max_seconds}
+    return request, info, {"job_id":job_id, "artifacts":{"job_directory":str(job)}}
+
+
+def _native_status(task):
+    owned = _NATIVE_JOBS.get(task["directory"])
+    _require(owned is not None, "Linux 作业无本次会话持有的进程句柄；不信任磁盘状态")
+    process = owned["process"]
+    code = process.poll()
+    if code is None:
+        if time.monotonic() >= owned["deadline"] and "stop" not in owned:
+            owned["stop"] = "timed_out"
+            process.kill()
+        state = "running"
+    else:
+        state = owned.get("stop") or ("succeeded" if code == 0 else "failed")
+    return {"job_id":task["job_id"], "state":state}
+
+
 def _write_request(opts, scene):
     document, info = _request_document(opts, scene)
     requests_dir = info["jobs_root"] / "requests"
@@ -507,6 +558,11 @@ def _read_job_error(job_dir):
                 return str(error["message"])[:1000]
         except Exception:
             pass
+    log = job_dir / "worker.log"
+    if _LINUX and log.is_file() and not log.is_symlink():
+        with log.open("rb") as stream:
+            stream.seek(max(0, os.fstat(stream.fileno()).st_size - 4096))
+            return stream.read(4096).decode("utf-8", errors="replace")[-1000:]
     return ""
 
 
@@ -662,7 +718,7 @@ def poll_task(opts, include_error=False, force=False):
         }
     try:
         task = _frozen_task(opts)
-        status = _small_json(task["directory"] / "status.json")
+        status = _native_status(task) if _LINUX else _small_json(task["directory"] / "status.json")
         _require(
             status.get("job_id") == task["job_id"],
             "冻结 job 的 status.json job_id 不符",
@@ -863,10 +919,11 @@ def _start_build(opts, scene):
         raise RuntimeError(
             "已有冻结后台作业；请先收集/取消/等待并释放，不能覆盖旧 job"
         )
-    request_path, info = _write_request(opts, scene)
-    response = _cli_submit(
-        info["cli"], info["jobs_root"], request_path, opts.max_seconds
-    )
+    if _LINUX:
+        request_path, info, response = _start_linux(opts, scene)
+    else:
+        request_path, info = _write_request(opts, scene)
+        response = _cli_submit(info["cli"], info["jobs_root"], request_path, opts.max_seconds)
     job_id = str(response.get("job_id", ""))
     _require(bool(re.fullmatch(r"[0-9a-f]{32}", job_id)), "CLI 未返回确切 job ID")
     jobs_root = Path(info["jobs_root"]).resolve(strict=True)
@@ -941,7 +998,15 @@ def _cancel_job(opts):
     task = _frozen_task(opts, require_cli=True)
     if opts.job_terminal:
         raise RuntimeError("任务已终态，无需取消")
-    response = _cli_cancel(task["cli"], task["jobs_root"], task["job_id"])
+    if _LINUX:
+        owned = _NATIVE_JOBS.get(task["directory"])
+        _require(owned is not None, "无本次会话持有的进程句柄")
+        if owned["process"].poll() is None:
+            owned.setdefault("stop", "cancelled")
+            owned["process"].kill()
+        response = {"data":_native_status(task)}
+    else:
+        response = _cli_cancel(task["cli"], task["jobs_root"], task["job_id"])
     data = response.get("data") or {}
     state = str(data.get("state", "cancelling")).lower()
     if state == "cancelled":
@@ -953,7 +1018,7 @@ def _cancel_job(opts):
         opts.status = "CANCELLING"
         opts.job_state = "cancelling"
         opts.job_terminal = False
-        opts.status_message = "取消请求已提交；由 CLI 生命周期收尾，本 UI 不杀进程"
+        opts.status_message = "已请求取消，等待后台收尾"
     opts.cancel_requested = True
     opts.error = ""
     try:
@@ -969,6 +1034,8 @@ def _release_job(opts):
         opts.job_terminal,
         "状态非明确终态（可能仍在活动或读取失败）；不能释放冻结 job",
     )
+    if _LINUX:
+        _NATIVE_JOBS.pop(Path(opts.job_directory), None)
     opts.job_id = ""
     opts.job_directory = ""
     opts.job_cli_path = ""
@@ -1012,7 +1079,7 @@ def _forget_job(opts):
     opts.error = ""
     opts.status_message = (
         "已仅遗忘丢失的界面句柄；未取消进程、未删除目录/输出。"
-        "若后台仍在运行，请用外部 CLI 核对 job 状态"
+        "请保留后台作业目录以便核对"
     )
 
 
@@ -1241,6 +1308,8 @@ def _tick():
     if not _OWNED:
         return None
     try:
+        for directory in tuple(_NATIVE_JOBS):
+            _native_status({"directory":directory, "job_id":directory.name})
         scene = bpy.context.scene
         opts = getattr(scene, OPTIONS, None) if scene is not None else None
         if opts is not None and opts.job_id and not opts.job_terminal:
@@ -1262,10 +1331,10 @@ def _tick():
 class C94CAMERA_Options(bpy.types.PropertyGroup):
     vmd_path: StringProperty(name="VMD 文件", subtype="FILE_PATH", default="")
     backend_path: StringProperty(
-        name="MMD Tools 目录", subtype="DIR_PATH", default=_DEFAULT_ADDON
+        name="MMD Tools 目录", subtype="DIR_PATH", default="" if _LINUX else _DEFAULT_ADDON
     )
     opencc_path: StringProperty(
-        name="OpenCC wheel", subtype="FILE_PATH", default=_DEFAULT_OPENCC
+        name="OpenCC wheel", subtype="FILE_PATH", default="" if _LINUX else _DEFAULT_OPENCC
     )
     cli_path: StringProperty(
         name="blenderctl.ps1", subtype="FILE_PATH", default=_DEFAULT_CLI
@@ -1678,20 +1747,22 @@ class C94CAMERA_PT_panel(bpy.types.Panel):
         row.operator("c94_camera.inspect_paths", text="检查")
         box.prop(opts, "backend_path")
         box.prop(opts, "opencc_path")
-        box.prop(opts, "cli_path")
+        if not _LINUX:
+            box.prop(opts, "cli_path")
         box.prop(opts, "jobs_root")
-        box.label(text="后台作业目录必须已存在；requests/ 与 job 子目录只写此目录", icon="INFO")
-        box.label(text="上面 CLI/jobs 路径只用于下一次提交；运行中 job 使用冻结路径", icon="INFO")
+        box.label(text="后台作业目录须已存在；每次任务建立独立子目录", icon="INFO")
+        box.label(text="上面的路径只用于下次提交；当前任务使用冻结路径", icon="INFO")
         box.prop(opts, "max_seconds")
         box.prop(opts, "artificial_note")
         if opts.backend_status:
             box.label(text=opts.backend_status[:88], icon="INFO")
         if opts.vmd_status:
             box.label(text=opts.vmd_status[:88], icon="INFO")
-        box.prop(opts, "worker_path")
+        if not _LINUX:
+            box.prop(opts, "worker_path")
 
         box = layout.box()
-        box.label(text="后台构建（public CLI extension.run）", icon="PLAY")
+        box.label(text="后台构建（Linux 专用相机进程）" if _LINUX else "后台构建（public CLI extension.run）", icon="PLAY")
         build = box.row()
         build.enabled = not bool(opts.job_id)
         build.operator("c94_camera.build_native_library", text="按当前 Scene fps 构建")
@@ -1704,7 +1775,7 @@ class C94CAMERA_PT_panel(bpy.types.Panel):
             box.label(text=f"阶段：{opts.phase}", icon="TIME")
         if opts.job_id:
             box.label(text=f"Job：{opts.job_id}")
-            box.label(text=f"冻结 CLI：{opts.job_cli_path[-70:]}", icon="INFO")
+            box.label(text=f"冻结执行程序：{opts.job_cli_path[-70:]}", icon="INFO")
             box.label(text=f"冻结 root：{opts.job_jobs_root[-70:]}", icon="INFO")
             box.label(text=f"冻结 job：{opts.job_directory[-70:]}", icon="INFO")
         if opts.job_status_read_error:
@@ -1867,6 +1938,11 @@ def register():
 
 def unregister():
     global _OWNED, _TIMER_REGISTERED, _CORE, _CORE_PATH
+    for owned in _NATIVE_JOBS.values():
+        if owned["process"].poll() is None:
+            owned["process"].kill()
+        owned["process"].wait()
+    _NATIVE_JOBS.clear()
     if _TIMER_REGISTERED:
         try:
             bpy.app.timers.unregister(_tick)

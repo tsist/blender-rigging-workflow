@@ -144,15 +144,23 @@ if hashlib.sha256(request_bytes).hexdigest()!=sys.argv[sys.argv.index('--')+2]:
     raise ValueError('MMD source request changed')
 request=json.loads(request_bytes)
 from contextlib import ExitStack
-job=packet/'job'
-worker=packet/'runtime/rigging_workflow/retarget_mmd_import_worker.py'
+kind=sys.argv[sys.argv.index('--')+3]
+workers={'motion':'retarget_mmd_import_worker.py','camera':'retarget_mmd_camera_worker.py'}
+worker=packet/'runtime/rigging_workflow'/workers[kind]
+job=packet if kind=='camera' else packet/'job'
 sys.path.insert(0,str(worker.parent.parent))
 sys.dont_write_bytecode=True
 sys.pycache_prefix=str(packet/'private-pycache')
 from rigging_workflow.linux_file_guard import LinuxFileGuard,LinuxGuardMonitor
 params=request['params']['manifest']['params']
-if params['package']!=str(worker.parent):
+if kind=='motion' and params['package']!=str(worker.parent):
     raise ValueError('MMD source package mismatch')
+if kind=='camera' and (params['core_module']!=str(worker.with_name('retarget_mmd_camera.py')) or
+        request['params']['manifest']['script']['file']!=str(worker)):
+    raise ValueError('MMD camera worker/core mismatch')
+if kind=='camera':
+    import bpy
+    bpy.context.preferences.filepaths.file_preview_type='NONE'
 with LinuxGuardMonitor() as monitor, ExitStack() as stack:
     request_guard=stack.enter_context(LinuxFileGuard(packet/'request.json',monitor=monitor))
     if request_guard.sha256()!=sys.argv[sys.argv.index('--')+2]:
@@ -178,7 +186,7 @@ with LinuxGuardMonitor() as monitor, ExitStack() as stack:
     watcher=threading.Thread(target=watch,daemon=True)
     watcher.start()
     try:
-        runpy.run_path(str(worker),init_globals={'job_directory':str(job),'parameters':params})
+        runpy.run_path(str(worker),run_name='__main__' if kind=='camera' else '<run_path>',init_globals={'job_directory':str(job),'parameters':params})
     finally:
         stop.set()
         watcher.join()
@@ -187,8 +195,8 @@ with LinuxGuardMonitor() as monitor, ExitStack() as stack:
 # Only successful guard-close plus worker success can produce exit code zero.
 """
 
-def _submit_linux(prepared,began,prepared_at):
-    packet=Path(prepared['packet']);directory=packet/'job';directory.mkdir(mode=0o700)
+def _launch_linux(prepared, directory, kind):
+    packet=Path(prepared['packet'])
     folders={key:packet/subdir for key,subdir in (
         ('HOME','home'),('XDG_CONFIG_HOME','xdg-config'),('XDG_CACHE_HOME','xdg-cache'),
         ('XDG_DATA_HOME','xdg-data'),('BLENDER_USER_RESOURCES','blender-user'),
@@ -201,8 +209,13 @@ def _submit_linux(prepared,began,prepared_at):
     with (directory/'worker.log').open('xb') as log:
         process=subprocess.Popen([prepared['cli'],'--factory-startup','--background',
             '--disable-autoexec','--offline-mode','--python-exit-code','1','--python-expr',
-            _LINUX_BOOTSTRAP,'--',str(packet),_sha(prepared['request'])],cwd=str(packet),stdin=subprocess.DEVNULL,
+            _LINUX_BOOTSTRAP,'--',str(packet),_sha(prepared['request']),kind],cwd=str(packet),stdin=subprocess.DEVNULL,
             stdout=log,stderr=subprocess.STDOUT,shell=False,env=env)
+    return process
+
+def _submit_linux(prepared,began,prepared_at):
+    packet=Path(prepared['packet']);directory=packet/'job';directory.mkdir(mode=0o700)
+    process=_launch_linux(prepared,directory,'motion')
     return {**prepared,'id':prepared['entry_id'],'directory':str(directory),'process':process,
         'deadline':time.monotonic()+prepared['timeout'],'cache':{'state':'running'},
         'append_receipt':None,'submit_seconds':time.perf_counter()-began,

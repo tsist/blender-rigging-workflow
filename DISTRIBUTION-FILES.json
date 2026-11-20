@@ -206,6 +206,7 @@
     "scripts/build_release.py",
     "scripts/smoke_addon_archive.py",
     "scripts/smoke_blender.py",
+    "scripts/smoke_linux_mmd_camera.py",
     "scripts/smoke_linux_mmd_import.py",
     "skills/blender-rigging/SKILL.md",
     "skills/blender-rigging/references/AI-CALLS.md",

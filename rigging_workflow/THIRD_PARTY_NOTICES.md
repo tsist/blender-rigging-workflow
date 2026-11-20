@@ -45,3 +45,8 @@ the reference PMX. See RETARGET-USER-GUIDE.md for the supported local paths.
 No private C94 rig template, target model, font or texture, Mixamo/CMU sample
 motion, VMD, or music is included. Sample research permissions do not grant
 unrelated asset redistribution rights. No public release has been performed.
+
+- Linux read leases and namespace monitoring use Blenderctl’s GPL-3.0-or-later
+  `tools/blenderctl/linux_file_guard.py` from the qualified [workflow read guard](https://github.com/tsist/blenderctl/pull/9)
+  (upstream file SHA-256 `aa4e5dc02841b07233e131da64492119ce049a93d4600b4f035833a8651615b6`).
+  The only change to that file is the import of its local Failure exception adapter.

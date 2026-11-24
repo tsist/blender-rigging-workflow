@@ -19,7 +19,9 @@ from rigging_candidate import (
     read_json, require, write_json,
 )
 
+from linux_readonly import linux_mode, require_self_contained, run_readonly, worker_request
 
+ENTRY = 'candidate-selected-skin'
 SCHEMA = 'rigging.selected_skinning_inspect.v1'
 EXECUTE_SCHEMA = 'rigging.selected_skinning_execute.v1'
 EXECUTE_REVIEW_AND_READBACK_SECONDS = 600
@@ -352,9 +354,9 @@ def execute(bpy, requests, run, targets, aggregate, *, batch):
 def inspect(request, *, mode='inspect', run=None):
     import bpy
 
-    require(sys.platform == 'win32' and bpy.app.background and not bpy.app.online_access
+    require((sys.platform == 'win32' or linux_mode(ENTRY, mode)) and bpy.app.background and not bpy.app.online_access
             and bpy.app.version == (5, 3, 0) and bpy.app.build_hash == BUILD,
-            'UNSUPPORTED_HOST', '需要离线后台 Windows Blender 5.3.0 02f0899d78e3')
+            'UNSUPPORTED_HOST', '需要受支持的离线后台 Blender 5.3.0 02f0899d78e3')
     validate(request, mode)
     source = checked_descriptor(request['source'], '.blend', 'SOURCE_SHA_MISMATCH')
     sys.dont_write_bytecode = True
@@ -368,6 +370,8 @@ def inspect(request, *, mode='inspect', run=None):
             'PACKAGE_MISMATCH', '所加载的角色工作流必须来自此隔离候选目录')
     try:
         _open(bpy, source)
+        if sys.platform == 'linux':
+            require_self_contained(bpy)
         report = {
             'ok': True, 'mode': mode, 'schema': request['schema'], 'source': request['source'],
             'scene': request['scene'], 'view_layer': request['view_layer'],
@@ -416,7 +420,8 @@ def _failure(error, default_code, mode):
 
 def worker(mode, snapshot, output):
     try:
-        report = inspect(read_json(snapshot), mode=mode, run=output.parent)
+        with worker_request(ENTRY, mode, snapshot) as request:
+            report = inspect(request, mode=mode, run=output.parent)
     except (AdapterError, ImportError, OSError, OverflowError, ValueError, RuntimeError, TypeError) as error:
         report = _failure(error, 'NATIVE_REJECTED', mode)
     write_json(output, report)
@@ -430,6 +435,25 @@ def launch():
     parser.add_argument('--run-dir', required=True)
     parser.add_argument('--blender', required=True)
     args = parser.parse_args()
+    if sys.platform == 'linux':
+        try:
+            result, output = run_readonly(ENTRY, args.mode, args.request, args.run_dir,
+                                          args.blender, CLI, lambda req: validate(req, args.mode))
+            summary = {'ok': result['ok'], 'result': str(output), 'weights_written': False}
+            if result['ok']:
+                if 'targets' in result:
+                    summary['targets'] = [{'target': row['target'], 'candidate_name': row['candidate_name'],
+                                           'scope_sha256': {name: item['sha256'] for name, item in row['scopes'].items()}}
+                                          for row in result['targets']]
+                else:
+                    summary['scope_sha256'] = {name: item['sha256'] for name, item in result['scopes'].items()}
+                    summary['coincident_boundary_pairs'] = result['coincident_boundary_pairs']
+            else:
+                summary['error'] = result['error']
+        except (OSError, ValueError, subprocess.TimeoutExpired) as error:
+            summary = _failure(error, 'WORKER_FAILED', args.mode)
+        print(json.dumps(summary))
+        return 0 if summary['ok'] else 2
     try:
         request = read_json(absolute_file(args.request, '.json'))
         validate(request, args.mode)

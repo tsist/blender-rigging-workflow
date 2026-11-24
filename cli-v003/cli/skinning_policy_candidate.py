@@ -14,7 +14,9 @@ sys.path.insert(0, str(SCRIPT.parent))
 from rigging_candidate import (AdapterError, absolute_file, checked_descriptor, configure_host,
                               file_digest, mesh_facts, mesh_weight_rows, open_scene, read_json, require, write_json)
 
+from linux_readonly import run_readonly, worker_request
 
+ENTRY = 'candidate-skinning-policy'
 SCHEMA = 'rigging.skinning_policy_preflight.v1'
 STEPS = {
     'plan': ('c94_workflow.skinning_policy_plan', 'skinning_policy.prepare_transfer'),
@@ -252,8 +254,8 @@ def execute(mode, request, scene, target, donor, rig, result, run):
 def worker(mode, request, run):
     validate(request, mode)
     source = checked_descriptor(request['source'], '.blend', 'SOURCE_SHA_MISMATCH')
-    bpy, _, _ = configure_host('v003')
-    scene = open_scene(bpy, source, request)
+    bpy, _, _ = configure_host('v003', linux_entry=ENTRY, mode=mode)
+    scene = open_scene(bpy, source, request, self_contained=sys.platform == 'linux')
     target, donor, rig = scene_objects(scene, request)
     result = {'ok': True, 'mode': mode, 'source': request['source'], 'build': bpy.app.build_hash.decode(),
               'qualify': qualify(target, donor, rig), 'weights_written': False, 'preview_created': False}
@@ -308,9 +310,9 @@ def main():
         tag, mode, snapshot, output = sys.argv[marker:]
         require(tag == '_worker', 'INVALID_REQUEST', '无效工作进程入口')
         try:
-            request = read_json(Path(snapshot))
-            run = Path(snapshot).parent
-            result = cold(request, run) if mode == '_cold' else worker(mode, request, run)
+            with worker_request(ENTRY, mode, Path(snapshot)) as request:
+                run = Path(snapshot).parent
+                result = cold(request, run) if mode == '_cold' else worker(mode, request, run)
         except (OSError, ValueError, RuntimeError) as error:
             result = error_report(error)
         write_json(Path(output), result)
@@ -322,6 +324,16 @@ def main():
     parser.add_argument('--run-dir', required=True)
     parser.add_argument('--blender', required=True, help='Absolute path to the audited Blender executable')
     args = parser.parse_args()
+    if sys.platform == 'linux':
+        output = None
+        try:
+            result, output = run_readonly(ENTRY, args.mode, args.request, args.run_dir,
+                                          args.blender, SCRIPT, lambda req: validate(req, args.mode))
+        except (OSError, ValueError, subprocess.TimeoutExpired) as error:
+            result = error_report(error)
+        print(json.dumps({'ok': result['ok'], 'result': str(output) if output else None,
+                          'weights_written': False, 'preview_created': False, 'error': result.get('error')}))
+        return 0 if result['ok'] else 2
     try:
         request = read_json(absolute_file(args.request, '.json'))
         validate(request, args.mode)

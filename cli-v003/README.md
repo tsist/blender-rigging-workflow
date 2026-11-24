@@ -1,6 +1,6 @@
 # Rigging Workflow 0.42.3-agent-v003
 
-This source preview provides the four background commands used by the matching [blenderctl adapter](https://github.com/tsist/blenderctl). It uses Windows Blender 5.3.0 (build `02f0899d78e3`) and its bundled NumPy. Run the command using 64-bit Python 3.11 or newer. The Python launcher starts Blender offline with factory startup and automatic script execution disabled.
+This source preview provides the four background commands used by the matching [blenderctl adapter](https://github.com/tsist/blenderctl). Its full workflow uses Windows Blender 5.3.0 (build `02f0899d78e3`) and its bundled NumPy. Run the command using 64-bit Python 3.11 or newer. The Python launcher starts Blender offline with factory startup and automatic script execution disabled.
 
 Set `BLENDERCTL_RIGGING_ROOT` to the root of this repository for the adapter. The same entry points run directly. This PowerShell example displays the selected-weight command's arguments.
 
@@ -20,6 +20,33 @@ Pass the mode, `--request` with an absolute JSON path, `--run-dir` with a new ab
 Selected-bone recomputation writes the selected bones on the explicitly targeted meshes inside the reviewed vertex ranges. Non-selected vertex group entries are preserved even when the resulting total exceeds 1. Check the relevant posed joint after adoption. Review close-contact regions and hand off unresolved lips and eyelashes for manual correction.
 
 C94 operations require the caller's authorized template and positioning data. Modular generation expects compatible installed Rigify when the operation requests it. Supply the saved Blender inputs, supporting files and authorization receipts for the intended operation.
+
+## Linux read-only preview
+
+The Linux x86_64 preview qualifies only these modes on Blender 5.3.0 build
+`02f0899d78e3`: selected-skin `inspect` and skinning-policy `qualify` / `plan`.
+The [capability manifest](linux-capabilities.json) tells the matching adapter
+which combinations it may dispatch. There is no Linux candidate write,
+preview object, repair, character entry, PMX/VMD, or CUDA acceptance claim.
+
+Use a trusted local self-contained Blender project, an explicit canonical path
+to the matching portable Linux Blender binary, and a filesystem supporting
+Linux read leases and inotify (use local storage, not a mounted share).
+The launcher checks the exact binary SHA-256, holds guarded request and source
+descriptors, runs Blender offline with automatic scripts disabled and a private
+profile, and publishes the JSON result after guard validation. Linked libraries
+and unpacked paths reported by Blender are rejected. The launcher is not a
+sandbox for untrusted .blend files, runtime installations, or same-user
+processes. It does not confine native Blender's implicit file reads.
+
+Run the disposable fixture and end-to-end checks without installing the add-on:
+
+```sh
+python3 -B cli-v003/tests/smoke_linux_readonly.py --blender /absolute/path/to/blender
+```
+
+Use `--work-parent` for a different local filesystem. The test checks real
+read-only results and verifies the inputs did not change.
 
 ## CPU and CUDA
 

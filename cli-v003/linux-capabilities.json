@@ -1,0 +1,8 @@
+{
+  "schema_version": 1,
+  "edition": "0.42.3-agent-v003",
+  "routes": {
+    "candidate-selected-skin": ["inspect"],
+    "candidate-skinning-policy": ["qualify", "plan"]
+  }
+}

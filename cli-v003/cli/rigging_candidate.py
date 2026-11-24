@@ -267,10 +267,11 @@ def native_apply(scene, rig, module, request, operation, scope):
             'facts': output_facts(scene, rig, [scene.objects[name] for name in names], operation, candidate_id, sources, scope)}
 
 
-def configure_host(edition):
+def configure_host(edition, *, linux_entry=None, mode=None):
     import bpy
 
-    require(sys.platform == 'win32' and bpy.app.background and not bpy.app.online_access
+    from linux_readonly import linux_mode
+    require((sys.platform == 'win32' or (linux_entry is not None and linux_mode(linux_entry, mode))) and bpy.app.background and not bpy.app.online_access
             and bpy.app.version == (5, 3, 0) and bpy.app.build_hash == BUILD,
             'UNSUPPORTED_HOST', '需要离线后台 Windows Blender 5.3.0 02f0899d78e3')
     require(edition in EDITIONS, 'PACKAGE_MISMATCH', '此公开源码包只支持 v003')
@@ -286,9 +287,12 @@ def configure_host(edition):
     return bpy, rigging_workflow, package_root
 
 
-def open_scene(bpy, source, request):
+def open_scene(bpy, source, request, *, self_contained=False):
     require(bpy.ops.wm.open_mainfile(filepath=str(source), load_ui=False, use_scripts=False) == {'FINISHED'},
             'OPEN_FAILED', '无法读取已保存的准备工程')
+    if self_contained:
+        from linux_readonly import require_self_contained
+        require_self_contained(bpy)
     scene, view_layer = bpy.context.scene, bpy.context.view_layer
     require((scene.name, view_layer.name) == (request['scene'], request['view_layer']),
             'CONTEXT_MISMATCH', f'保存工程使用的场景和视图层为 {scene.name} / {view_layer.name}')

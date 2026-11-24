@@ -1,90 +1,101 @@
 ---
 name: blender-rigging
-description: 使用同一角色工作台维护人形骨架、体积蒙皮、面部控制、辅助动态和已支持来源的动画重定向，交付可编辑原生Blender工程；完整新角色C94流程需另行提供授权模板与定位图谱，不承诺任意控制图或GLB往返。
+description: 设计、制作与修复 Blender 角色、生物及可动游戏资产的骨架、蒙皮权重、面部表情、次级动态与动作重定向。接到新角色绑定、机械机构联动、权重返修、衣物转权或外部动捕接入时使用。
+metadata:
+  version: "1.0.0"
 ---
 
-# Blender 骨骼与角色工作台
+# 角色、生物与可动资产绑定
 
-配套运行包为 0.40.1，公开仓库[blender-rigging-workflow](https://github.com/tsist/blender-rigging-workflow)，预发布版 0.40.1。本技能是唯一便携入口，不携带原工作站、角色或私有审计。Windows Blender 5.2.1 与 5.3.0 的基础工作台和受限驱动已实测。人工、AI与公共CLI共用运行核心；不要安装历史SDK目录冒充当前产品。
+本技能归属 [绑定部门](https://github.com/tsist/blender-ai-workflow/blob/main/skills/blender-work-methodology/references/departments/rigging.md)，负责把定稿模型做成动画师顺手好调的运动与变形系统。交出的成果包括可编辑绑定工程、控制器清单、复位姿态方法与动作范围验证。动手前先用 `blenderctl.ps1 discover --product rigging` 查询当前宿主支持的发行版与动作入口，按返回的参数和工作副本流程推进。
 
-## 先确认目标与环境
+```powershell
+$ctl = './blenderctl.ps1'
 
-恢复当前任务及用户要求，分清新角色、已有C94、普通骨架维护和重定向。只恢复当前明确授权工作，不从旧pending记录或保存的token恢复提交权，不默认重启GLB／密集交换研究。
+# 查询绑定产品支持的发行版与入口
+& $ctl discover --product rigging
 
-当前场景先核对正确Blender Lab会话、文件、Scene、目标、模式和共享数据；磁盘工作副本按公共blenderctl当前契约执行。输入SHA、资源、driver profile、输出和异步终态以实际工具为准，新版后台入口见下节。
+# 查看当前推荐候选或固定版的具体动作
+& $ctl discover --product rigging --edition <发行版> --actions
+```
 
-当前C94包使用公共 `extension.run` 与精确包身份。历史 `rigging-workflow` locator可能指另一个旧产品，不能用它的成功冒充当前包已被调用，不静默改共享locator。实际API和参数见 [AI-CALLS](references/AI-CALLS.md)。
+## 第一步：摸清运动职责，选最轻的绑定路线
 
-完整新角色生成需另行提供授权模板和定位图谱，见 [模板契约](references/TEMPLATE-CONTRACT.md)。插件不包含私有角色／字体／纹理／样本动作，不自动下载依赖。新机器须在文件导入／可选镜头面板明确选择实际CLI、MMD Tools与OpenCC路径。
+先读上游交来的模型工作副本、对象名清单和委托动作范围，算出源文件 SHA-256 留作基线。把每个活动部件的职责拆成四句话：允许怎么动、挂在谁身上、由哪一层变形、交给谁消费。
 
-## Windows Blender 5.3.0 的 v003 命令行预览
+- **简单刚性运动**：台灯摆臂、旋钮旋转、门盖开合这类整件绕轴或沿轨运动的道具，直接设准物体原点、父子层级或基础变换约束即可交动画，省去整套骨架维护。
+- **角色全身与生物四肢**：先查清物种的真实解剖关系，再选模板或模块化骨架。遇到陌生生物、特殊机构或未知目标引擎规则，先做只读拆解和资料复现，把关节中心与运动规律理顺再建骨。
+- **已有外部绑定或旧角色返修**：先只读识别原骨架、控制器、形态键、Action 和驱动依赖。用户要求保原架构就走原骨架维护路线；需要换成工作台体系就在独立副本上重建并核对迁权映射。
 
-使用 [公开 blenderctl 的 Rigging 接入说明](https://github.com/tsist/blenderctl/blob/main/docs/RIGGING.md) 配置当前仓库。`BLENDERCTL_RIGGING_ROOT` 指向本仓库的检出根。运行 `blenderctl.ps1 --blender <Blender 5.3.0 可执行文件绝对路径> rigging-workflow discover` 查当前动作，再查对应子命令帮助。v003 是以独立源码提供的后台入口，面板操作继续按 0.40.1 的工作台契约处理。继续旧回执时沿用生成它的源码、宿主和原作业目录。
+详细原理与跨物种方案见 [变形原理、解剖与身体方案](references/anatomy-and-body-plans.md)，交互道具、载具、武器、植被、柔性物与运行时消费见 [游戏可动资产与运行时消费](references/game-assets-and-runtime.md)。
 
-- `candidate-entry` 用于新角色单域或多域体素初绑、同作业表面转权、审片、保存和结果读取。先核对中立骨架的关节位置、约束与无皮肤运动，并绑定有效的骨架与写权范围审核。几何关系无法可靠自动判断时，把该部位留在待处理范围，继续运行独立且通过检查的域。相关区域通过审核后再正式合并采用。
-- `candidate-selected-skin inspect` 预览指定骨骼附近的范围。显式指定此次要改的网格和骨骼，必要时调整范围，检查接缝两端。`execute` 只写指定网格内选区中的选中骨骼组。未选骨骼的每个权重值均须原样保留。允许同一顶点保存的权重合计超过 100%，摆姿势检查实际相对拉动比例。修改后独立重开，核对未选骨及范围外顶点的权重，再重放受影响动作。
-- `candidate-repair` 用于作者返工、模块重建和已绑定骨架的逐点维护。`candidate-skinning-policy` 用于同骨架供体资格、计划、预览及显式范围内的迁权。用源指纹和本次审核回执限定写范围。
+## 第二步：先做未蒙皮骨架，过双审再求权（审看①）
 
-**睫毛和嘴唇的变形修复交人工。** 自动初绑若发现粘连、穿插或尖褶，记录对象、动作帧、可见位置和对应工作副本，继续验收其他部位。人工修复后重放相应的眨眼或开合嘴动作。其余区域按实际用途检查大开腿、下蹲、屈臂、抓握和脚趾弯曲等关键及过渡姿势。正式采用前修复漏权、明显串权、粘连和塌陷。
+新角色或结构大改的绑定，把“做骨架”和“刷权重”严格分成两段。先交出未蒙皮的待审骨架，把关节位置、骨轴朝向和控制器运动全部验实，再进入蒙皮求权；骨架改动会直接推翻整身权重，把关口前移最省返工。
 
-## 人工入口与阶段
+1. **按真实解剖安放关节**：人形分清胸锁（SC）、肩锁（AC）与盂肱（GH），让锁骨连向肩峰、肱骨从肩峰下方伸向肘部；犬猫等四足按肌肉悬吊肩胛定位，分清后肢跗关节与膝关节。数字控骨按用途简化，并写明每根骨的枢轴与职责。
+2. **定好局部轴与弯曲平面**：Blender 骨长轴固定是局部 Y（head 指向 tail），Roll 决定主弯曲平面。摆完静置姿态后核查弯曲方向、预弯与缩放继承；对称部件可用定位会话的 `MIRROR_L` / `MIRROR_R` 镜像修正端点后重新生成。
+3. **出全向分区叠图**：按躯干、头颈、左右肢与附属分区赋稳定颜色并附图例。静置姿态输出 9 宫格或 16 宫格（正、背、左右、顶、底加斜向），密集关节补近景；同时保留实面叠骨图与独立骨骼轴向图。
+4. **验无皮肤运动与切换**：不挂皮肤，逐项测 FK 屈伸轴转、肩带骨盆联动、IK 弯曲平面与近伸展、手脚支撑、中间帧、左右对称与回静置姿态，并记录 FK/IK 保姿态切换残差与无伸缩骨长。
+5. **走主审、独审与用户审看①**：主制作与独立审查看齐全部多向图与运动记录，签认绑定当前骨架、参照与运动范围的通过回执，再摆代表姿态请用户确认。
 
-3D视图N → 角色工作台。已有角色选择骨架 → 进入角色；新角色从准备与定位开始。阶段可自由跳转，只阻止前置不足操作；日常提供主要操作，进阶完整参数，开发集中诊断。
+具体验收清单、四足禁伸缩核查和短命配对匹配方法见 [骨架质检、无皮肤运动与配对匹配](references/skeleton-gate-and-matching.md)。
 
-1. 输入检查：部件、旧绑定、有效表面、单位／朝向、依赖和独立工作副本。
-2. 模板／模块：先选齐角色模块，确认整体参考结构；后加模块走显式返工。
-3. 定位／拟合：自动坐标候选、手调／锁定、指定未锁域重算，查看叠图后确认完整参考骨。
-4. 生成／蒙皮：生成完整C94机制，再体积扩散、服装转移或独立求解、发裙链及刚性附件；用真实姿态核查。
-5. 面部：权重复核、骨输入混合设计、整组采样角色Key、修正／组合；已有Key保留或显式映射。
-6. 动态：胸臀弹性，独立发裙后端与碰撞；预卷／捕获／预览／混合／停止／重置／冻结／烘焙。
-7. 动画／维护／交付：按已支持来源设置Profile与队列；保存可编辑.blend、日常Text和依赖，独立重开。
+## 第三步：体素蒙皮、部件转权与局部修权
 
-模板、参考层、整块效果按当前任务需要提供实际预览。已经明确授权且未失效的同角色决定复用；用户暂缓的视觉精修记deferred，不反复索取也不写成通过。原骨架局修按实际影响裁剪，不强加无关新建流程。
+骨架通过审看①并拿到匹配回执后，再在工作副本上求权和修权。新角色默认走体素蒙皮公共入口，按部件性质分流：身体走单域或多域体素求解，贴体衣物从已应用身体做同作业转权，硬饰品走刚性单骨绑定。
 
-## 数据保护与故障恢复
+```powershell
+# 1. 检查整角色输入、复算域与同作业转权范围、求权试片与冷开核对
+& $ctl rigging-workflow candidate-entry inspect  --request $req --run-dir $runDir
+& $ctl rigging-workflow candidate-entry scope    --request $req --run-dir $runDir
+& $ctl rigging-workflow candidate-entry audition --request $req --run-dir $runDir
+& $ctl rigging-workflow candidate-entry result   --request $req --run-dir $runDir
 
-源文件保持，重要修改先独立检查点；Undo不替代备份。核对对象／Data共享、Action/Slot/NLA、Key、权重、约束／driver及非目标。只清理当前操作明确拥有的still-live新ID，不用全局ID差集删除外部callback或用户新增数据。
+# 2. 审片通过后产出交付副本（可开启 isolate_bound 聚焦骨架与已绑部件）
+& $ctl rigging-workflow candidate-entry finish   --request $req --run-dir $runDir
+```
 
-局部同步不解除全局fit_stale。配准只提议坐标，不改变固定拓扑或架构；ROI失败保未估计，不把初始化伪标manual。移动参照后重新应用。取消／失败不提交部分权重，不用最近骨或全组归一化掩盖失败。
+- **同作业部件转权与多域缓存复用**：在 `candidate-entry scope` 的 `transfer` 块里写明目标部件、刚应用好的供体部件与最大采样米距，写前自动拦冲突与超距；重开后继续同一角色时，在请求里传入上次的 `worker_jobs_dir`，未变域直接复用缓存。
+- **肩胯肘膝局部修权与选骨重算**：先做分层诊断，区分原模形体、骨架轨迹、权重支持还是法线问题。确属局部权重支持不足时，用 `candidate-selected-skin inspect` 预检受影响点与 `coincident_boundary_pairs`（把接缝两侧拆点成对纳入，避免弯折开缝），再用 `execute` 在新副本上只重算所选骨骼，原样保留其余骨组权重。同骨架供体迁权走 `candidate-skinning-policy qualify|plan|preview|apply`；作者返工或旧绑重建走 `candidate-repair inspect|review-handoff|apply`。
+- **统一视口看图标准**：检查皮肤变形时，保持几何表面完全不透明、关闭表面透显（X-Ray），叠加完整网格线框（中性色、只给关注区域标色、线框透明度约 0.6–0.7），开启屏幕空间曲率（Curvature），并配同机位无叠线实面图对照。左右成对部位同步抽查中立、中间、峰值与反侧。
+- **睫毛与嘴唇默认交人工精修**：自动初绑中如发现睫毛或嘴唇出现粘连、微穿插或局部尖褶，记录对象名、动作帧和局部对照图，标明待人工修复，继续完成身体、其他部件与冷开验收。
 
-默认真正体积扩散。Heat代理、转移或技术包络如实标识；临时封口／加厚／分区代理不能替换生产拓扑／UV／Key。明确目标、可写点／过渡带、deform组和锁组。候选存在或全点有权重不等于姿态美术通过。
+权重诊断表、表面回传、辅助骨与拓扑重建边界见 [体素蒙皮、局部修权与变形诊断](references/voxel-skinning-and-local-repair.md)。
 
-局部volume／绘制只在当前支持的Key／driver条件内工作。简单driver定义、映射或输入变化即过时；不删Key绕过，不扩大成任意姿态或带Key拓扑派生。需作者返工时保无Key采样源，修权重后重采受影响项。
+## 第四步：表情控制、衣物附件与次级弹性
 
-## 面部、模式和日常控制
+身体与主服装蒙皮稳固后，再叠表情、饰品和次级动态，保证每一层都在上一层的稳定基线上工作。
 
-骨控、独立图形板和中文侧栏共用状态；先混合骨输入再整组采样，不以Key相加冒充。改权重后重采受影响Key；骨架／中立不变才复用骨输入。切换真实KEY/BONE前检查同rig各hub的raw输入及动画，显隐不代替输入校验。
+- **面部表情与控制板**：先确认头部基础权重，再用骨骼混合设计标准表情并整组采样为形态键；跨皮肤与附件同步同一表情时，走多网格形态键映射保持中立一致。交付前整理控制板行名、分区与显隐，按最新布局指纹保存。深屈曲需要补形时，先做单侧单态目标曲面并验证原生逆解与中间帧，再合并多锚点驱动曲线。详见 [面部表情、姿态修形与控制板](references/face-correctives-and-controls.md)。
+- **服装附件与次级动态**：硬扣件、耳挂、头盔走单骨刚性跟随或挂点切换；裙片与挂饰按需建独立附属链（固定版 `c94_workflow.bind_accessory_copies`）。制作胸臀弹性与发裙摆动时，先锁定身体主动作并烘焙胸臀弹性（`elastic_action.BAKE`）到独立 NLA 轨，再在保存副本上配置固定点顶点组与碰撞集合烘焙发裙表面动态（`surface_dynamic_action.BAKE`），并用 `controls.mix` 调叠加强度。详见 [服装、附属物与次级动态](references/garments-accessories-and-dynamics.md)。
 
-Key修订保Basis、其它Key、源数据；完整pose／JSON／显隐失败回滚。manual Key重绑更新中立与下游指纹。旧默认两点恒等driver保留兼容，非恒等曲线不删除点绕过。
+## 第五步：动作重定向、现场接续与交给下游
 
-区分直接模式属性、保姿态snap和动画记录；RESET／KEY仅选中控制变换，匹配只当前帧且需更早源键，不自动补旧帧。新Action保原Action／slot和非目标。受driver控制的IK/FK若不能实际切换，明确拒绝并恢复，不能假成功。
+- **接外部动作与修脚底接触**：导入 MMD（PMX/VMD）或通用 FK（BVH/FBX）动捕时，通过 `discover --product rigging` 查清重定向队列与转换入口，按源帧率与目标帧率对齐身体和表情通道，记录 Action 与 Slot。出现脚滑或穿地时，走后台足底检测并生成交接单，送到现场审阅确认或撤回。用户在打开窗口里做了手调时，先走 `rigging-workflow session-live` 收拢状态再存副本。详见 [动作重定向与工作台 CLI 操练](references/retargeting-and-cli-operations.md)。
+- **独立冷开并交接动画部门**：最终交付副本另起进程冷开复验，核对源 SHA、部件拓扑与 UV 完整、全部变形骨权非零覆盖、代表姿态无爆点且能干净回静置姿态。交付清单写齐以下四项：
+  1. 保存好的绑定工程副本路径与 SHA-256。
+  2. 控制器清单、常用控制板布局，以及一键回静置姿态的步骤。
+  3. 动作范围测试样例（含 FK/IK 切换、代表帧或测试 Action/Slot）、表情映射与次级弹性轨道说明。
+  4. 已知极限姿态变形边界说明，以及需人工精修的极个别帧位（如睫毛、嘴唇细微交叠）。
 
-## 辅助动态
+## 例子：人形角色从拟合骨架到体素蒙皮与动画交接
 
-胸臀：`elastic.install/configure/capture`与Clip的preview/bake、freeze/reset/stop_preview。先采完整基础／预卷再写新helper四元数Action，保Base Action／Slot／骨／权重。烘焙核实际Action、Slot和全部写域；foreign NLA须明确处理，源或参数变化重新capture。
+接到委托：「给 `work/char/myona/model-whitebox.blend` 做人形全身绑定，覆盖日常站走、抬臂和下蹲，身体配贴体袜子与刚性耳挂，交动画部门做表演。」
 
-发裙：`surface_dynamic.install/configure/capture`及对应Clip入口。明确根部正权pin和碰撞Collection，同source一组，组件及原非面点明确锚点。原生Cloth先采全基础／实际碰撞轨迹，再逆LBS写独立relative Mesh Key残差与时钟Action；不称骨烘焙，不删RAW或豁免碰撞。
+1. **查入口与基线**：运行 `blenderctl.ps1 discover --product rigging` 确认当前推荐候选版与固定版入口；建批次目录 `work/audit/<batch>/`，算出源工程 SHA-256 并只读检查部件名（身体、右袜、左耳挂）。
+2. **定位骨架并过审看①**：按人体 SC/AC/GH 与四肢真实枢轴拟合参考骨，镜像校正左右足跟端点后生成未蒙皮骨架。导出分区配色 16 宫格叠图与无皮肤抬臂、下蹲、FK/IK 切换记录；主审、独审和用户依次签认骨架回执。
+3. **跑体素蒙皮与同作业转权**：在 `candidate-entry scope` 里配置身体多域体素求权、左耳挂刚性绑至头骨，并在 `transfer` 块里把右袜设为从刚应用的身体近面转权；运行 `audition` 生成审片副本。
+4. **看图复查与局修**：打开不透明实面加完整线框和曲率对照图，核对右袜在大开腿与深蹲下紧贴右腿、零跨侧拉扯，耳挂随转头刚性跟随；若肩部接缝有微拆点，用 `candidate-selected-skin inspect` 查出成对边界点后只重算上臂骨。发现睫毛和嘴唇在极值帧有轻微交叠，登记为待人工精修项。
+5. **冷开收尾交动画**：运行 `candidate-entry finish`（开启 `isolate_bound`）并用 `result` 在新进程冷开核验全部部件、动作态与源 SHA；把交付副本、SHA、控制器说明、复位方法和人工交接帧表交给动画部门。
 
-当前限本地普通LBS／可选Subsurf、无Key源／碰撞输入及明确同rig依赖。胸臀先原生烘焙再捕获发裙；活跃RAM、外来逐帧回调或未跟踪driver／父级写前拒绝，不卸外来代码。预览固定片段，输入变化重捕获；保存未烘焙预览回基础，冻结保残差，reset只本组回基础，失败恢复session／显示／新ID。
+## 参考
 
-胸臀spring不替代发裙Cloth。短片段数值通过不签完整生产发型、裙或连续无穿透。
-
-## 重定向与队列
-
-只按 [支持表](references/SUPPORT-MATRIX.md) 与 [动画指南](references/RETARGET-USER-GUIDE.md) 选择C94／普通FK／Profile／MMD等路径，源NLA最终合成未实现。明确来源、目标、Profile、独立目录和每条clip身份；重复resolved VMD路径应明确拒绝，不静默漏条目。
-
-提交、状态、取消、收集、预览、STOP恢复与释放走同一共享会话；取消保留已成功项，终态后核输出。跨Scene副本UID须为本目标重新转换；同一Object链接多个Scene不等于独立副本。失败保目录、阶段和cause，不擅自删快照。
-
-可选镜头需显式第三方路径与文件身份；旧camera Profile保原JSON／库，凭expected SHA迁移新sidecar，不静默补签。保存文件不恢复临时批准、collect或live提交权。
-
-## 验证与交付
-
-实际输入 → 共享核心 → 真实入口 → 可观察结果 → 保存／独立重开。根据改动和故障补受影响检查，复用仍有效证据；不因交接重跑昂贵求解。技术、视觉、便携和交换分别标pass/fail/not_run/deferred，文件存在、骨数、FINISHED或注册成功不代替效果。
-
-便携工作台由同源13日常模块构建，Text手动执行，不开autoexec。真实引用、UID／Scene门与面部setter/layout/record保留；制作作者／蒙皮／实时求解仍留在插件。字体显式用目标blend目录相对路径，保存冷开核解析。
-
-新建PoseBone属性driver首次invalid时核original/evaluated路径和真实生产初始化步骤，不强设valid或改autoexec。原生driver帧、旧场景范围门需要显式迁移或重烘焙，不能只更新插件就宣称旧输出修好。
-
-交付可编辑.blend、明确依赖、简明变更、真实验证、手修限制和恢复入口。全片GLB／FBX、超密集Key交换及任意连续时刻一致性不属默认要求；历史BBONE_SHARED_CONTINUOUS_V1／SHARED_RIG_NATIVE_TIME_V1研究不自动恢复。有新格式目标先明确损失项和授权。
-
-本版已验范围见 [VALIDATION](references/VALIDATION.md)，实际操作见 [USER-GUIDE](references/USER-GUIDE.md)。未知角色或素材艺术问题不得据既有样本擅自标通过。
+- [变形原理、解剖与身体方案](references/anatomy-and-body-plans.md)
+- [骨架质检、无皮肤运动与配对匹配](references/skeleton-gate-and-matching.md)
+- [体素蒙皮、局部修权与变形诊断](references/voxel-skinning-and-local-repair.md)
+- [面部表情、姿态修形与控制板](references/face-correctives-and-controls.md)
+- [服装、附属物与次级动态](references/garments-accessories-and-dynamics.md)
+- [动作重定向与工作台 CLI 操练](references/retargeting-and-cli-operations.md)
+- [游戏可动资产与运行时消费](references/game-assets-and-runtime.md)
+- [历史发行版、审计路径与来源台账](references/sources.md)

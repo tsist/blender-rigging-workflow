@@ -11,11 +11,21 @@ description: 使用同一角色工作台维护人形骨架、体积蒙皮、面�
 
 恢复当前任务及用户要求，分清新角色、已有C94、普通骨架维护和重定向。只恢复当前明确授权工作，不从旧pending记录或保存的token恢复提交权，不默认重启GLB／密集交换研究。
 
-基线为Windows／Blender5.2.1 LTS。当前场景先核对正确Blender Lab会话、文件、Scene、目标、模式和共享数据；磁盘工作副本按公共blenderctl当前契约执行。输入SHA、资源、driver profile、输出和异步终态以实际工具为准，不能编造rigging专用命令。
+当前场景先核对正确Blender Lab会话、文件、Scene、目标、模式和共享数据；磁盘工作副本按公共blenderctl当前契约执行。输入SHA、资源、driver profile、输出和异步终态以实际工具为准，新版后台入口见下节。
 
 当前C94包使用公共 `extension.run` 与精确包身份。历史 `rigging-workflow` locator可能指另一个旧产品，不能用它的成功冒充当前包已被调用，不静默改共享locator。实际API和参数见 [AI-CALLS](references/AI-CALLS.md)。
 
 完整新角色生成需另行提供授权模板和定位图谱，见 [模板契约](references/TEMPLATE-CONTRACT.md)。插件不包含私有角色／字体／纹理／样本动作，不自动下载依赖。新机器须在文件导入／可选镜头面板明确选择实际CLI、MMD Tools与OpenCC路径。
+
+## Windows Blender 5.3.0 的 v003 命令行预览
+
+使用 [公开 blenderctl 的 Rigging 接入说明](https://github.com/tsist/blenderctl/blob/main/docs/RIGGING.md) 配置当前仓库。`BLENDERCTL_RIGGING_ROOT` 指向本仓库的检出根。运行 `blenderctl.ps1 --blender <Blender 5.3.0 可执行文件绝对路径> rigging-workflow discover` 查当前动作，再查对应子命令帮助。v003 是以独立源码提供的后台入口，面板操作继续按 0.40.1 的工作台契约处理。继续旧回执时沿用生成它的源码、宿主和原作业目录。
+
+- `candidate-entry` 用于新角色单域或多域体素初绑、同作业表面转权、审片、保存和结果读取。先核对中立骨架的关节位置、约束与无皮肤运动，并绑定有效的骨架与写权范围审核。几何关系无法可靠自动判断时，把该部位留在待处理范围，继续运行独立且通过检查的域。相关区域通过审核后再正式合并采用。
+- `candidate-selected-skin inspect` 预览指定骨骼附近的范围。显式指定此次要改的网格和骨骼，必要时调整范围，检查接缝两端。`execute` 只写指定网格内选区中的选中骨骼组。未选骨骼的每个权重值均须原样保留。允许同一顶点保存的权重合计超过 100%，摆姿势检查实际相对拉动比例。修改后独立重开，核对未选骨及范围外顶点的权重，再重放受影响动作。
+- `candidate-repair` 用于作者返工、模块重建和已绑定骨架的逐点维护。`candidate-skinning-policy` 用于同骨架供体资格、计划、预览及显式范围内的迁权。用源指纹和本次审核回执限定写范围。
+
+**睫毛和嘴唇的变形修复交人工。** 自动初绑若发现粘连、穿插或尖褶，记录对象、动作帧、可见位置和对应工作副本，继续验收其他部位。人工修复后重放相应的眨眼或开合嘴动作。其余区域按实际用途检查大开腿、下蹲、屈臂、抓握和脚趾弯曲等关键及过渡姿势。正式采用前修复漏权、明显串权、粘连和塌陷。
 
 ## 人工入口与阶段
 

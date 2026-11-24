@@ -4,6 +4,11 @@ import argparse, ast, hashlib, json, re, shutil, zipfile
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = '0.40.1'
 ADDON_NAME = 'rigging_workflow-0.40.1.zip'
+CLI_PREVIEW = '0.42.3-agent-v003'
+LOCAL_CUDA_OUTPUTS = {
+    'cli-v003/rigging_workflow/volume/cuda/direct-pcg-sm120.cubin',
+    'cli-v003/rigging_workflow/volume/cuda/manifest.json',
+}
 
 def sha(data):
     return hashlib.sha256(data).hexdigest()
@@ -29,13 +34,15 @@ def selected():
         if not p.is_file() or any(x in ('.git','__pycache__','dist','test-output','runtime') for x in rel.parts) or p.suffix.lower() == '.log':
             continue
         name = rel.as_posix()
+        if name in LOCAL_CUDA_OUTPUTS:
+            continue
         if name not in allowed:
             raise ValueError('Unregistered distribution file: '+name)
         if p.is_symlink() or not p.resolve().is_relative_to(ROOT.resolve()):
             raise ValueError('External or symbolic distribution file: '+name)
         seen.add(name)
         data = p.read_bytes()
-        if p.suffix.lower() in ('.pyc','.blend','.blend1','.npz','.exe','.dll') or p.name in ('AGENTS.md','.env','secrets.json'):
+        if p.suffix.lower() in ('.pyc','.blend','.blend1','.npz','.exe','.dll','.cubin') or p.name in ('AGENTS.md','.env','secrets.json'):
             raise ValueError('Excluded file: '+name)
         if p.suffix.lower() == '.pmx':
             if name != 'rigging_workflow/resources/mmd/uka/MS_Uka.pmx' or sha(data) != expected['resources/mmd/uka/MS_Uka.pmx']:
@@ -82,8 +89,8 @@ def main(out,accepted_addon=None):
     prefix = 'skills/blender-rigging/'
     skill = [('blender-rigging/'+n[len(prefix):],d) for n,d in source if n.startswith(prefix)]
     skill.append(('blender-rigging/LICENSE',(ROOT/'LICENSE').read_bytes()))
-    rows = [archive(out/('blender-rigging-workflow-'+VERSION+'-source.zip'),source),
-            archive(out/('blender-rigging-skill-'+VERSION+'.zip'),skill)]
+    rows = [archive(out/('blender-rigging-workflow-'+CLI_PREVIEW+'-source.zip'),source),
+            archive(out/('blender-rigging-skill-'+CLI_PREVIEW+'.zip'),skill)]
     if accepted_addon is None:
         rows.append(archive(out/ADDON_NAME,addon))
     else:

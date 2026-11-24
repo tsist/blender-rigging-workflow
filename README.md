@@ -12,6 +12,10 @@ Install and enable `rigging_workflow-0.40.1.zip` through **Preferences → Add-o
 
 The release includes the portable `blender-rigging` skill, full source and SHA256SUMS.
 
+## Command-line preview
+
+The [v003 source checkout](cli-v003/README.md) provides background character binding, selected-bone weight recomputation, repairs, and weight transfer on Windows Blender 5.3.0. Run it directly or use the four portable routes in [blenderctl](https://github.com/tsist/blenderctl/blob/main/docs/RIGGING.md). The installable Character Workbench is available separately as version 0.40.1.
+
 ## What is available
 
 - Preparation, positioning, a fixed C94 template fitting/generation workflow, volumetric skinning, local weight tools and native rig maintenance.
@@ -33,10 +37,11 @@ The 5.3.0 checks cover clean installation, workspace activation, saved rig and s
 ## Repository layout
 
 - `rigging_workflow/`: current 183-file runtime, 165 Python files; install this product.
+- `cli-v003/`: background CLI source and optional local CUDA build.
 - `skills/blender-rigging/`: the only current portable companion skill.
 - `scripts/`: reproducible packaging and optional factory-startup registration smoke.
 - `work/`, `tools/`, `hrig_paths.py` and root `SOURCE_MAP.json`: preserved historical 0.1.0-dev1 SDK sources. Do not combine those legacy components with the current runtime.
 
 [License](LICENSE) · [Third-party notices](THIRD_PARTY_NOTICES.md) · [Changes](CHANGELOG.md) · [Development scope](docs/DEVELOPMENT.md)
 
-The separate [blenderctl](https://github.com/tsist/blenderctl) provides managed `extension.run`; no invented universal rigging command is claimed. Historical receipts and saved RAM session tokens do not grant new submission or commit rights.
+The separate [blenderctl](https://github.com/tsist/blenderctl) provides managed `extension.run` for the 0.40.1 package and the documented v003 routes for the separate source checkout. Historical receipts and saved RAM session tokens do not grant new submission or commit rights.

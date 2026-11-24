@@ -1,3 +1,8 @@
+# Unreleased
+
+- Add the v003 background CLI source and the Windows Blender 5.3.0 companion skill guidance.
+- Document selected-bone weight preservation and provide a build path for the optional CUDA kernel.
+
 # Changelog
 
 ## 0.40.1 — 2026-11-19

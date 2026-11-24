@@ -30,3 +30,9 @@
 性能有真实长任务进度与取消观察。GUI示例70样本转换约57秒、1线程；这些是特定输入观察，不是统一速度保证。源快照、收集等阶段仍同步。
 
 未签：任意控制图／输入组合、源NLA最终合成、全片素材美术、长片连续无穿透、真实camera VMD逐帧视觉、跨平台生产运行、已暂停GLB／密集交换。原样本艺术精修不扩成角色重制。
+
+## v003 command-line source preview
+
+The v003 source checkout was exercised on Windows Blender 5.3.0 build `02f0899d78e3`. Character-entry inspect, selected-skin inspect, repair inspect, and skinning-policy plan completed against saved inputs. Independent source hashes matched before and after each read.
+
+A generated two-bone volume fixture used CPU with a source-only checkout and CUDA after a local NVRTC 13.0 build on RTX 5080 Laptop. The rebuilt kernel matched the previously tested kernel hash. The CPU and CUDA fixture weights differed by at most `3.36e-8` and both CUDA residuals were below `1e-6`. Production character inputs and performance measurements belong to their original local acceptance, and other GPU models were outside the test scope.

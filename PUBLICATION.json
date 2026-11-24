@@ -233,5 +233,14 @@
     "upstream_commit": "659f0d1a740fec68bb2817dc9c694a35e7a15f12"
   },
   "validation": "docs/VALIDATION.md",
-  "publication": "docs/PUBLICATION.md"
+  "publication": "docs/PUBLICATION.md",
+  "cli_preview": {
+    "edition": "0.42.3-agent-v003",
+    "directory": "cli-v003",
+    "os": "Windows",
+    "blender": "5.3.0",
+    "build": "02f0899d78e3",
+    "delivery": "source preview",
+    "cuda_artifacts": "local build"
+  }
 }

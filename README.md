@@ -14,6 +14,9 @@ The release includes the portable `blender-rigging` skill, full source and SHA25
 
 ## Command-line preview
 
+The [Win53 posing source edition](docs/WIN53_POSING.md) has its own build and
+can be selected explicitly in blenderctl for retargeting, posing and live handoff.
+
 The [v003 source checkout](cli-v003/README.md) provides background character binding, selected-bone weight recomputation, repairs, and weight transfer on Windows Blender 5.3.0. Run it directly or use the four portable routes in [blenderctl](https://github.com/tsist/blenderctl/blob/main/docs/RIGGING.md). The installable Character Workbench is available separately as version 0.40.1.
 
 ## What is available

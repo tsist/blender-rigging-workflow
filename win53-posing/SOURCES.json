@@ -1,0 +1,838 @@
+{
+  "edition": "0.42.3-win53-phase3",
+  "files": {
+    "LICENSE": {
+      "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903",
+      "source": "rigging_workflow/LICENSE"
+    },
+    "THIRD_PARTY_NOTICES.md": {
+      "sha256": "cc3ecb8c94572dce912f93806f8cfe75964b8f6f9cec39ab298413ce413e207f",
+      "source": "win53-posing/overlay/THIRD_PARTY_NOTICES.md"
+    },
+    "__init__.py": {
+      "sha256": "db478afbcc7b2d0dd2d69f3881c91450ac0912b153b65be20823497465da0aac",
+      "source": "win53-posing/overlay/__init__.py"
+    },
+    "accessory_chains.py": {
+      "sha256": "5662f7f3baaeae487cb2f2004d783483cc34bfc621912ad720587fd6a27686b9",
+      "source": "rigging_workflow/accessory_chains.py"
+    },
+    "accessory_ui.py": {
+      "sha256": "4d919a98781f7509bb3293fc3249b09c3daaf152d9c89b54867c50b4ebb08379",
+      "source": "rigging_workflow/accessory_ui.py"
+    },
+    "author_rework.py": {
+      "sha256": "e31d766e873d1a1b8b276165d7b4613cc3d828462260c255cb989b75b129d69a",
+      "source": "cli-v003/rigging_workflow/author_rework.py"
+    },
+    "author_rework_ui.py": {
+      "sha256": "e7f0969c0b17af4f0ec2681f1d6c00c5bd8ca187a30faf2a6073e63c7898c6d5",
+      "source": "win53-posing/overlay/author_rework_ui.py"
+    },
+    "candidate_state.py": {
+      "sha256": "d22aff9c5f47b809a8b1b4195b0929ee4b1fb681a284781968751240de2cb877",
+      "source": "cli-v003/rigging_workflow/candidate_state.py"
+    },
+    "character_generation.py": {
+      "sha256": "a23931a3252a057ac7580358973838d69067913f2a41152a1351e5d759697989",
+      "source": "rigging_workflow/character_generation.py"
+    },
+    "cloth_backend.py": {
+      "sha256": "63a9dec02b8fd1086020f20c04f893314223908521b960cac1635abd46000ab2",
+      "source": "rigging_workflow/cloth_backend.py"
+    },
+    "contact_geometry.py": {
+      "sha256": "efe4f2a019933c9aa7c222e593554882a861a908a71d46b8dfe1a35005c40553",
+      "source": "rigging_workflow/contact_geometry.py"
+    },
+    "control_layer.py": {
+      "sha256": "5a77450219e4d35bad6b3b08b55b0ce9cc1065647a3f5efcfa024704aaf3ad13",
+      "source": "cli-v003/rigging_workflow/control_layer.py"
+    },
+    "control_panel.py": {
+      "sha256": "a441b8a17b24dd77a92ad154be0a78e0ec19baeb8d6a7c77c4f565d7654cfc57",
+      "source": "rigging_workflow/control_panel.py"
+    },
+    "corrective_authoring.py": {
+      "sha256": "0de6e9cc50296da6fbf0a3d8344326b5f3611476d8e99d29b4bd8c9621329841",
+      "source": "rigging_workflow/corrective_authoring.py"
+    },
+    "corrective_ui.py": {
+      "sha256": "0dccc0d07773bf09e94c85e507ef1d66838740c8289136d530a706a3bacebe4e",
+      "source": "rigging_workflow/corrective_ui.py"
+    },
+    "driver_hygiene.py": {
+      "sha256": "75e4e7cdbfcdf3abf3d5846ac33f8d2f773a2d20ac5a29716ea4dcef332cfe39",
+      "source": "rigging_workflow/driver_hygiene.py"
+    },
+    "editing.py": {
+      "sha256": "8e50bef2f6a5a783e2fbf833c58f1dceb11688e938572188ebec236ffbe47949",
+      "source": "rigging_workflow/editing.py"
+    },
+    "elastic.py": {
+      "sha256": "026f45029251f0a97d60db72c873bd26249ec8e15359bc9fe1f6b35236701d84",
+      "source": "rigging_workflow/elastic.py"
+    },
+    "elastic_solver.py": {
+      "sha256": "204632b2a6d82ae625540db229e6fc0c4679e47f01ac13d340333ae58ff3a18e",
+      "source": "rigging_workflow/elastic_solver.py"
+    },
+    "elastic_ui.py": {
+      "sha256": "7e87a312752df72686c124490cf120d004c44c5fa7401bb53acdba269aefd6c0",
+      "source": "rigging_workflow/elastic_ui.py"
+    },
+    "exchange_api.py": {
+      "sha256": "a72f97eff3b45f6b6659444c42b3ce68d0d6ec54f1fa78e8ecc4e12834e749fa",
+      "source": "rigging_workflow/exchange_api.py"
+    },
+    "exchange_runtime/__init__.py": {
+      "sha256": "224bc40bd416d9d4750d0fa3daeecedba2dde4dc6af682305b483850cd5504c6",
+      "source": "rigging_workflow/exchange_runtime/__init__.py"
+    },
+    "exchange_runtime/clock_fbx.py": {
+      "sha256": "ed5f96daac555e4beb93055085e5256ebf25f0b034bf116e601246c13ac395fa",
+      "source": "rigging_workflow/exchange_runtime/clock_fbx.py"
+    },
+    "exchange_runtime/contract.py": {
+      "sha256": "a18af530316171a41bed0a736402d6288e691229d109b6fee0fd197c7620e7a3",
+      "source": "rigging_workflow/exchange_runtime/contract.py"
+    },
+    "exchange_runtime/core.py": {
+      "sha256": "483758fa81bba95914b4afd8d32d17cdc31a32063aaa8ba9ef9ff591f998fd1a",
+      "source": "rigging_workflow/exchange_runtime/core.py"
+    },
+    "exchange_runtime/driver_math.py": {
+      "sha256": "ad08a574abd00757de2ceff98a33191ab4027de4c019d56c7f12256762c47033",
+      "source": "rigging_workflow/exchange_runtime/driver_math.py"
+    },
+    "exchange_runtime/driver_policy.py": {
+      "sha256": "e0253c10fda9dfd912de4e5abf2a801ee9beab3782729af1012796a6fedb65d1",
+      "source": "win53-posing/overlay/exchange_runtime/driver_policy.py"
+    },
+    "exchange_runtime/fbx_compat.py": {
+      "sha256": "9df0dd06ab2a1aef206b41af0fbed0f36b2f05314cc9b62705b0fb2fb51f696e",
+      "source": "rigging_workflow/exchange_runtime/fbx_compat.py"
+    },
+    "exchange_runtime/format_io.py": {
+      "sha256": "0cd9f88cfc514da669d0df406e2f23fd93394c5bcdd16a51b43dd8a8c95ce4ec",
+      "source": "rigging_workflow/exchange_runtime/format_io.py"
+    },
+    "exchange_runtime/id_inspection.py": {
+      "sha256": "7116a789fcfd4dec93a92bc47a8c7add477dfae47a0519ed3e63dd7679f9d4cc",
+      "source": "rigging_workflow/exchange_runtime/id_inspection.py"
+    },
+    "exchange_runtime/io_support.py": {
+      "sha256": "1c316f5394af269c165a9cac290a2d588d76d63be19f9be2a115f0e48801700d",
+      "source": "rigging_workflow/exchange_runtime/io_support.py"
+    },
+    "exchange_runtime/key_library.py": {
+      "sha256": "ccab217b069e01abc61aa62a4e9f89260d1fddb4ec71a36fc9cce325ddf4ab59",
+      "source": "rigging_workflow/exchange_runtime/key_library.py"
+    },
+    "exchange_runtime/native_import.py": {
+      "sha256": "ee3f914f8bfcde917d277d4999f7b9c7ba7a7525e4c0e86b484816d1a0a43844",
+      "source": "rigging_workflow/exchange_runtime/native_import.py"
+    },
+    "exchange_runtime/native_reader.py": {
+      "sha256": "d91d4c149a28cfa45d985ace633dd641254a42d00066d7909051ddc315c41495",
+      "source": "rigging_workflow/exchange_runtime/native_reader.py"
+    },
+    "exchange_runtime/resource_policy.py": {
+      "sha256": "a133c9669720ee17548ee36708de0b6ac187b3bd594bc568bbe465671774d4e4",
+      "source": "rigging_workflow/exchange_runtime/resource_policy.py"
+    },
+    "exchange_runtime/source_policy.py": {
+      "sha256": "8069897d409b653169deacc4b50987b0b1b2a5da4a686965174f740ac84a1fd0",
+      "source": "rigging_workflow/exchange_runtime/source_policy.py"
+    },
+    "exchange_ui.py": {
+      "sha256": "141cf72c0d946276a6b2e263d86d476a9d2d0610e3844f930e48971b4d63f941",
+      "source": "rigging_workflow/exchange_ui.py"
+    },
+    "exchange_worker.py": {
+      "sha256": "bdcacd1c5a22c97bd62b83d0139c73b7758936761a1a0a2a641b1b21cf77a6f7",
+      "source": "win53-posing/overlay/exchange_worker.py"
+    },
+    "face_board_art.py": {
+      "sha256": "8ccbe746e6cdf8ec23553e6e5215b4e390ac0c01f6a36792cc8477a5ec62c7d7",
+      "source": "rigging_workflow/face_board_art.py"
+    },
+    "face_capture.py": {
+      "sha256": "9a8bcdbd3ebce5b2fa961e8ccfeaa3ae22fd3b6033bb7f8a4709d142cb4e8e68",
+      "source": "rigging_workflow/face_capture.py"
+    },
+    "face_capture_group.py": {
+      "sha256": "83dcc559db446489a57c42e18efe40239c58b301a823f9e3d7a46b93e950f234",
+      "source": "rigging_workflow/face_capture_group.py"
+    },
+    "face_capture_ui.py": {
+      "sha256": "915252b180c0c083a4e4fd85ddb20062025af99dde293ea5c5f72d1ef2ddbdd8",
+      "source": "rigging_workflow/face_capture_ui.py"
+    },
+    "face_daily.py": {
+      "sha256": "4c3657e55dee1c12223a2e84704e7dfb4d405b9688a6e5537549ce192ecd7724",
+      "source": "rigging_workflow/face_daily.py"
+    },
+    "face_daily_ui.py": {
+      "sha256": "c88f852973fe792300444cff8166e72bb4c215840a5c50379a9d7a3108f2b05e",
+      "source": "rigging_workflow/face_daily_ui.py"
+    },
+    "face_expression_controls.py": {
+      "sha256": "1e53f0047c488486fd35248d589ec5a56818d317be6a126e6df747eb121dc7d5",
+      "source": "rigging_workflow/face_expression_controls.py"
+    },
+    "face_expression_controls_ui.py": {
+      "sha256": "f2fa074bf1e983fabdc93efe51185a7681cd4b225ee270e1681ab564e8a5072f",
+      "source": "rigging_workflow/face_expression_controls_ui.py"
+    },
+    "face_expression_core.py": {
+      "sha256": "d22391bca8ee02cead6c420c7b2b9c891fba472ec0352921c63b80c2a1ea9480",
+      "source": "cli-v003/rigging_workflow/face_expression_core.py"
+    },
+    "face_expression_layout.py": {
+      "sha256": "b3b13eead7556af52de8c8e734af69e64c71a05beabb4736a1d7ba3a9299c440",
+      "source": "rigging_workflow/face_expression_layout.py"
+    },
+    "face_focus.py": {
+      "sha256": "630a653c42af92d87bfd5183190799b97a0b0bc275e5a02d0e44d76da7201fb4",
+      "source": "rigging_workflow/face_focus.py"
+    },
+    "face_follow.py": {
+      "sha256": "12ff8a372056024206703f774a54a457a3ddec374e5f7cc0714cee44b696fe78",
+      "source": "rigging_workflow/face_follow.py"
+    },
+    "face_graph_board.py": {
+      "sha256": "9f7014994aee883b07260558e4ceaccf3e8de6c2a4198ccd85a9f9e54052c0d0",
+      "source": "rigging_workflow/face_graph_board.py"
+    },
+    "face_graph_core.py": {
+      "sha256": "239d7ff138cac7804870138420692afa923fa91b1283dd82d8b493fb900d8466",
+      "source": "rigging_workflow/face_graph_core.py"
+    },
+    "face_key_mapping.py": {
+      "sha256": "5dbdef58269640429e7663ddfcbdcb1c2fb857d150aa32963c9951d5d7475243",
+      "source": "rigging_workflow/face_key_mapping.py"
+    },
+    "face_key_mapping_ui.py": {
+      "sha256": "af7db064ec1c72396ad65621acd261e6b35c9823c5e59c13f4af91773fe71c74",
+      "source": "rigging_workflow/face_key_mapping_ui.py"
+    },
+    "face_key_revision.py": {
+      "sha256": "3f2f2e52de2bcb6a7faee53d703c453c6f0667108d36ffde8a16e98d21fc9ffa",
+      "source": "rigging_workflow/face_key_revision.py"
+    },
+    "face_key_revision_ui.py": {
+      "sha256": "1374267f2f2a16e2f9facde31b082abd83a8f3e078f2786a2274866eec763d0f",
+      "source": "rigging_workflow/face_key_revision_ui.py"
+    },
+    "face_modes.py": {
+      "sha256": "3266e98d125257d61312b2283bfd2867c670b094cc733739a9c0d4e493b02e08",
+      "source": "rigging_workflow/face_modes.py"
+    },
+    "face_modes_ui.py": {
+      "sha256": "5331c32dc17cb248052f9ec0e22e2b6ef73f5fa0190e7a857c036c2aaa2b2526",
+      "source": "rigging_workflow/face_modes_ui.py"
+    },
+    "face_mouth_core.py": {
+      "sha256": "d92c63fa838994083e90ebb41139cf07131cf53b292d9e2903d2957916525bac",
+      "source": "rigging_workflow/face_mouth_core.py"
+    },
+    "face_mouth_pad.py": {
+      "sha256": "d86c4c73eb4e99cecf65c12ea2d278e9e3b453f13ffe3e4c48649a6988da517f",
+      "source": "rigging_workflow/face_mouth_pad.py"
+    },
+    "face_pose_library.py": {
+      "sha256": "0792b441bd404255d552344cb0bfe5d2f4e1db236d8879cbb91c228f2060fe06",
+      "source": "rigging_workflow/face_pose_library.py"
+    },
+    "face_pose_library_ui.py": {
+      "sha256": "4cb96fbba1b185aea0fa0323a16a51592346e329a055404b8d0cf19fd4b51839",
+      "source": "rigging_workflow/face_pose_library_ui.py"
+    },
+    "generation.py": {
+      "sha256": "177cce2c5c3ed980a2b0c10a6e0242e4052baee1187b3be4a1c999962f1ba2d1",
+      "source": "win53-posing/overlay/generation.py"
+    },
+    "generation_ui.py": {
+      "sha256": "60eac2bf9df5119dcab289b01995cd38e0511f179e5283ff8591ea3f8e091a97",
+      "source": "win53-posing/overlay/generation_ui.py"
+    },
+    "helper_weights.py": {
+      "sha256": "5a44c0bc6aedf06666c277143fdb09f283d34ff9c124fe01464a988c19fbd132",
+      "source": "win53-posing/overlay/helper_weights.py"
+    },
+    "inspection_geometry.py": {
+      "sha256": "d1a0c83ab31b28641ac5c8badb6ab49bf5739c1ab8b99f4cf709827d4e1d6e2e",
+      "source": "rigging_workflow/inspection_geometry.py"
+    },
+    "inspection_ui.py": {
+      "sha256": "104c520ee3d042fa6df01512fb2da80174f294c14bf0251b5d2013799e5d95ab",
+      "source": "rigging_workflow/inspection_ui.py"
+    },
+    "inspection_workspace.py": {
+      "sha256": "51f0b7166435c7ad4d85dc86e849017626e43ebce90276b8d8f88d0f3b185965",
+      "source": "rigging_workflow/inspection_workspace.py"
+    },
+    "inventory.py": {
+      "sha256": "a20acbe800d62678f70ba083460e7bcd6254a880d5af86f8c557265f8c44d07d",
+      "source": "rigging_workflow/inventory.py"
+    },
+    "joint_positions.py": {
+      "sha256": "5f7a19e93e3c6ab2d983ea91f8b424b2e26ad6af467272acdc4b509dd3abf9d4",
+      "source": "rigging_workflow/joint_positions.py"
+    },
+    "local_skinning_job.py": {
+      "sha256": "58ecdcdb9be03be92b6e9a555729c78a5113a2bcbc4452bd4c483b37ed93a9e9",
+      "source": "cli-v003/rigging_workflow/local_skinning_job.py"
+    },
+    "local_skinning_ui.py": {
+      "sha256": "3656e0a06a0bd0c36e1dc431f5fdc9498f70b8654aa003a9945a8f7cedaa56e4",
+      "source": "rigging_workflow/local_skinning_ui.py"
+    },
+    "mmd_source_backend.py": {
+      "sha256": "b5b12ad8c37b862c7950e28bdd0a5b2d85266c306028b29491547e900e2eb480",
+      "source": "rigging_workflow/mmd_source_backend.py"
+    },
+    "mode_animation.py": {
+      "sha256": "bc1bdfa4ec8d11bec0331b23a3f53ab223363c3bbd1e915914b8c7fba82e90a7",
+      "source": "rigging_workflow/mode_animation.py"
+    },
+    "mode_semantics.py": {
+      "sha256": "c799ab0dd9a13b82a2a22b9911f0fb90d533722c018df2bb08bfd94f9d54c464",
+      "source": "rigging_workflow/mode_semantics.py"
+    },
+    "modular_correctives.py": {
+      "sha256": "fbda6d18333d1549141282defdf02c238e17e059a16e6ece552f57827fdb1355",
+      "source": "cli-v003/rigging_workflow/modular_correctives.py"
+    },
+    "modular_neutral.py": {
+      "sha256": "bb449ed85e0446d11e8277a18d295e665beb8c3c10feddac6e9f33656dd6d0be",
+      "source": "cli-v003/rigging_workflow/modular_neutral.py"
+    },
+    "modular_positioning.py": {
+      "sha256": "141a5a1d9df4bf4b4f19cf9ae1e766c0be24d0f87835aa2b52359360daa220af",
+      "source": "win53-posing/overlay/modular_positioning.py"
+    },
+    "modular_proxy_ownership.py": {
+      "sha256": "f0476c614e9f8f8eed27dfc5c4fd360c6a84955b2fd6e30d1d07a85c8c257839",
+      "source": "win53-posing/overlay/modular_proxy_ownership.py"
+    },
+    "modular_retarget.py": {
+      "sha256": "8da2c391b09d248fed698fc21c1b3ce7252aadba60ab7b62455ffad3e6c76298",
+      "source": "win53-posing/overlay/modular_retarget.py"
+    },
+    "modular_rig.py": {
+      "sha256": "7a5ee794192cf1de87b7a154e257949cde68ecb1aee92aac452b1253f21f5600",
+      "source": "cli-v003/rigging_workflow/modular_rig.py"
+    },
+    "modular_surface.py": {
+      "sha256": "2e683d8301e0223c2f29c48b4cea5df215b8da57a6cbc66cadbc8e04c8b16a4b",
+      "source": "win53-posing/overlay/modular_surface.py"
+    },
+    "modular_ui.py": {
+      "sha256": "83864ec25a9120b50747ffbf0cb5b1bb90feafc1ece77cfe60607f66525ac73c",
+      "source": "win53-posing/overlay/modular_ui.py"
+    },
+    "modular_workflow.py": {
+      "sha256": "3a538a72747000d176f6d5b6e9f6eea851c0faee02e8af9745ea1b9c56ee6b20",
+      "source": "win53-posing/overlay/modular_workflow.py"
+    },
+    "module_configuration.py": {
+      "sha256": "9392d5c74784794370d57fffe6f0d710a3a94cc439b65b28e5fe9a42ee9daa0b",
+      "source": "rigging_workflow/module_configuration.py"
+    },
+    "module_mapping.py": {
+      "sha256": "5d6752fe1537afca7e25304c4dda5e62060790ed0326fc4487f667f1223c1c84",
+      "source": "rigging_workflow/module_mapping.py"
+    },
+    "modules.py": {
+      "sha256": "a16ee94122e5c916fe739dcb491403023d6d6a052573db0e4828bef4f2e657b3",
+      "source": "rigging_workflow/modules.py"
+    },
+    "native_binding.py": {
+      "sha256": "4ca0535da2b734145795b3c43af8695addfa3dc6f402b7180254751be26fb0b1",
+      "source": "win53-posing/overlay/native_binding.py"
+    },
+    "native_maintenance.py": {
+      "sha256": "41f519941161ff47661c02e53ca5b333ecaccefc686d768fcc2be759431a10ef",
+      "source": "cli-v003/rigging_workflow/native_maintenance.py"
+    },
+    "native_maintenance_ui.py": {
+      "sha256": "12fc5424b89c0994e41b968897424e6dbc3662eca4dbf17707f14b8bdcc73668",
+      "source": "win53-posing/overlay/native_maintenance_ui.py"
+    },
+    "native_skeleton.py": {
+      "sha256": "efa7d918e6a6f52739d2a52f3b1ff483ececada361fdeb8fcf424d3889385938",
+      "source": "cli-v003/rigging_workflow/native_skeleton.py"
+    },
+    "neutral_binding.py": {
+      "sha256": "c94f72a08887b8ab93dd8c03fe9613f8cee4b7d7f1ac8f5192a65ff949d754ad",
+      "source": "cli-v003/rigging_workflow/neutral_binding.py"
+    },
+    "portable.py": {
+      "sha256": "e3e9f691036543c9460643cc8be183bde30411f790b592f1df8263c4ebe1338f",
+      "source": "rigging_workflow/portable.py"
+    },
+    "pose_match_pair.py": {
+      "sha256": "1e50f1422dba6721baa37156973b582b101f775dc20cf25edc9ac4372453827e",
+      "source": "win53-posing/overlay/pose_match_pair.py"
+    },
+    "pose_matching.py": {
+      "sha256": "29f81d1fa72c3f549c98e6eb0eff5eef62d3995823d1c89837f47a82e86800f4",
+      "source": "win53-posing/overlay/pose_matching.py"
+    },
+    "pose_switching.py": {
+      "sha256": "0cd547ca00e62d9f4afb8a9c2ea90004b14bfac4f1a6196310ad561359898ded",
+      "source": "cli-v003/rigging_workflow/pose_switching.py"
+    },
+    "pose_switching_leg.py": {
+      "sha256": "82355e42ec37cc21a19b687483814622fc9a7ae4ff30035199942c18a538f45d",
+      "source": "rigging_workflow/pose_switching_leg.py"
+    },
+    "posing_rom.py": {
+      "sha256": "0d8e4a97c7dd42cc0c6500e8b124ea4729d785d7450b675c9925615abfbe35a8",
+      "source": "win53-posing/overlay/posing_rom.py"
+    },
+    "posing_rom_ui.py": {
+      "sha256": "9f29f0b677386446f0a821fa78a7707a37a61b08bd8a867e33faa25df69e61fb",
+      "source": "win53-posing/overlay/posing_rom_ui.py"
+    },
+    "positioning.py": {
+      "sha256": "ae526305a83df9ecd9f2bac1f288e1b4269449f8e82914a0d571557a687ca802",
+      "source": "rigging_workflow/positioning.py"
+    },
+    "positioning_ui.py": {
+      "sha256": "a91aa64d10edc6f5a42abbfe9b1e899baf857e602902dec1e33d1d324faada4d",
+      "source": "rigging_workflow/positioning_ui.py"
+    },
+    "rebuild.py": {
+      "sha256": "5fb8601af8e73c866962df1750dddf6ac384dca3d9af270a98f5e39297bcc5b6",
+      "source": "cli-v003/rigging_workflow/rebuild.py"
+    },
+    "reference.py": {
+      "sha256": "72671d187a401234a0a43425eed332965252228705d785c6892c9bbd5fc6b5c1",
+      "source": "rigging_workflow/reference.py"
+    },
+    "registration.py": {
+      "sha256": "34be214a362883305cdb97c85d06fdf8722880d8a7174f0ee37213f4f86cad54",
+      "source": "rigging_workflow/registration.py"
+    },
+    "retarget_action.py": {
+      "sha256": "eba36e185aa78a629d356041a44b4dfd176143e53d0c02b5f000f1c62fd985cf",
+      "source": "win53-posing/overlay/retarget_action.py"
+    },
+    "retarget_bvh.py": {
+      "sha256": "f209a24277eca28fff2b4cd2071c9f91d8840b7a53027d281aa348361b70cc7e",
+      "source": "rigging_workflow/retarget_bvh.py"
+    },
+    "retarget_bvh_source.py": {
+      "sha256": "ee4e60bee729d093e1aac573fdb33e68b9ca66a997d703e2f631d7f46268658f",
+      "source": "rigging_workflow/retarget_bvh_source.py"
+    },
+    "retarget_c94.py": {
+      "sha256": "9cf4d2df0d93820da0a8190f41ea96ab920bae5e5fe3e5fd15bf132ec1a1317c",
+      "source": "win53-posing/overlay/retarget_c94.py"
+    },
+    "retarget_calibration.py": {
+      "sha256": "1042321f847b62573b21a53ce5b8686906e3fd03f6e78aef52a3c02096f217e1",
+      "source": "rigging_workflow/retarget_calibration.py"
+    },
+    "retarget_contact.py": {
+      "sha256": "3bd50ef1c3cd7490e0530ad19cac2c291142b2be6ca2fadeb4152e2c59df00dc",
+      "source": "rigging_workflow/retarget_contact.py"
+    },
+    "retarget_contact_anchors.py": {
+      "sha256": "57881f3546c3a1924c1af2b2300e88fba797195f90cfb90e9b5960a5825178c0",
+      "source": "rigging_workflow/retarget_contact_anchors.py"
+    },
+    "retarget_contact_correction.py": {
+      "sha256": "bf67e8c8ba623a4468b634381674792358a7323316bc6979aa5ff607bf536b98",
+      "source": "win53-posing/overlay/retarget_contact_correction.py"
+    },
+    "retarget_contact_correction_ui.py": {
+      "sha256": "8af6214ed96825d9d6955b7865fd74b96301530575c7cf4988ac5c6cfc82010f",
+      "source": "rigging_workflow/retarget_contact_correction_ui.py"
+    },
+    "retarget_contact_detection.py": {
+      "sha256": "aaba11d206bbf7cb3cbf65f6a4f97a7e76e2ed2ece5dbc7ff01c508c3abd897e",
+      "source": "rigging_workflow/retarget_contact_detection.py"
+    },
+    "retarget_contact_detection_ui.py": {
+      "sha256": "4360381beb7b914e2e707c3b60a21dd05bd2661e598921c8177cab7a30e2a62e",
+      "source": "win53-posing/overlay/retarget_contact_detection_ui.py"
+    },
+    "retarget_contact_hints.py": {
+      "sha256": "b9646aedefdc49bac7f33d269109ef744610e3c35727fcde2f8593611fb1f329",
+      "source": "rigging_workflow/retarget_contact_hints.py"
+    },
+    "retarget_contact_job.py": {
+      "sha256": "be75f80cac3254cd2ed63e74f16d571725729b4eab2a4ad30cec128ac745330b",
+      "source": "win53-posing/overlay/retarget_contact_job.py"
+    },
+    "retarget_contact_job_ui.py": {
+      "sha256": "df95a091e21e039b67f40985f0d18af43ec274634764162f960debda36ab107a",
+      "source": "win53-posing/overlay/retarget_contact_job_ui.py"
+    },
+    "retarget_contact_samples.py": {
+      "sha256": "f9cb42e29ab214c26e8f3d0d82ceb6e383667337d2a336aced7998fdae5ecda8",
+      "source": "rigging_workflow/retarget_contact_samples.py"
+    },
+    "retarget_dynamic.py": {
+      "sha256": "00b1b8a46a2a3b18022fb80527767638888acdd556b343eef8f032951160742f",
+      "source": "rigging_workflow/retarget_dynamic.py"
+    },
+    "retarget_finger_inputs.py": {
+      "sha256": "a7fbe21f085af99199d5170e6fab9d213475df592fe4a057953ee28c50ecbb1a",
+      "source": "rigging_workflow/retarget_finger_inputs.py"
+    },
+    "retarget_fk_contact.py": {
+      "sha256": "142cfb0c209d7bae19cdea11eb5cea0d4a0e49fb1c04828c7972eda7fa256531",
+      "source": "win53-posing/overlay/retarget_fk_contact.py"
+    },
+    "retarget_general_job.py": {
+      "sha256": "d5b018b007bbcc61da99072f649f3f09088c322c01db191d04640e39337300cc",
+      "source": "rigging_workflow/retarget_general_job.py"
+    },
+    "retarget_general_job_ui.py": {
+      "sha256": "b588470432683724d7f8caaafc8d5d2e7c51d0a8502ef75797d2da7dd735c4c0",
+      "source": "rigging_workflow/retarget_general_job_ui.py"
+    },
+    "retarget_generic_target.py": {
+      "sha256": "8336e6e0885d8c10292ac40aea34add8a1deccae65614a789b6d178c59b32e11",
+      "source": "rigging_workflow/retarget_generic_target.py"
+    },
+    "retarget_generic_target_ui.py": {
+      "sha256": "fca284446b9a88ed52c0842a605416f6c1d6899301d98bdcc3d0e033b9014451",
+      "source": "win53-posing/overlay/retarget_generic_target_ui.py"
+    },
+    "retarget_headneck.py": {
+      "sha256": "ccd10373537bdc20c2f4011078bbb6902781ffe80f46128fe8ae03f1e26cdaa5",
+      "source": "rigging_workflow/retarget_headneck.py"
+    },
+    "retarget_headneck_allocation.py": {
+      "sha256": "db9566bab10bc354a77ae5b847ff7b84dc3fa98856631fd5f1bf76fd31a8f5d5",
+      "source": "rigging_workflow/retarget_headneck_allocation.py"
+    },
+    "retarget_headneck_ui.py": {
+      "sha256": "8219c04624e72fc35c8e6d7865c5a8e21480f1a5f11107ff57e6bbee5f78a96f",
+      "source": "rigging_workflow/retarget_headneck_ui.py"
+    },
+    "retarget_job.py": {
+      "sha256": "6722dfea2e72392078241015633e6b7d3986ab8f568cf0915dc30b883700fd1c",
+      "source": "rigging_workflow/retarget_job.py"
+    },
+    "retarget_job_ui.py": {
+      "sha256": "fd4851ef0862157babde4a46cc53e163137bb00c32d20a3685c35391e5cbede9",
+      "source": "rigging_workflow/retarget_job_ui.py"
+    },
+    "retarget_job_worker.py": {
+      "sha256": "f660b9e02725a6077afc577259d3317c1963e135cc7d95ac7ac31d1599ba9fd5",
+      "source": "rigging_workflow/retarget_job_worker.py"
+    },
+    "retarget_mmd.py": {
+      "sha256": "60cddc242ca6f4307a125625ab41d0fc07db7ff3cc44a9f1a26c238275326bc7",
+      "source": "rigging_workflow/retarget_mmd.py"
+    },
+    "retarget_mmd_camera.py": {
+      "sha256": "10dd2797bbf4c40e2f673cece983caf3bdd1c3b88138f14115d4271012fcb08e",
+      "source": "win53-posing/overlay/retarget_mmd_camera.py"
+    },
+    "retarget_mmd_camera_ui.py": {
+      "sha256": "d297134638c330468812190f53f85accca3d975f630a941ff44a4c80e279e4e6",
+      "source": "win53-posing/overlay/retarget_mmd_camera_ui.py"
+    },
+    "retarget_mmd_camera_worker.py": {
+      "sha256": "ac42a5d5f7cd7ab645f16fcf70d31f22337efbd4079975b964ca38ead602b3a2",
+      "source": "rigging_workflow/retarget_mmd_camera_worker.py"
+    },
+    "retarget_mmd_face.py": {
+      "sha256": "3cf4f217b72f04375cbc75f743f96af2b0f9a1baeb79ccb3c03241a0f895e09d",
+      "source": "rigging_workflow/retarget_mmd_face.py"
+    },
+    "retarget_mmd_gaze.py": {
+      "sha256": "9e7b0ba5864a5a326888b27bc16661e23442ddc8e83d58bc23837a08137c970c",
+      "source": "rigging_workflow/retarget_mmd_gaze.py"
+    },
+    "retarget_mmd_import_ui.py": {
+      "sha256": "a529da5422aba8c62cb8e2f1dcab155b31807999923e72f63583f3bbd39dcd6b",
+      "source": "win53-posing/overlay/retarget_mmd_import_ui.py"
+    },
+    "retarget_mmd_import_worker.py": {
+      "sha256": "80f0fd235a2fc1da01cc4fbc5fe0d86e253d6fcfbf96c3e367e8ca8626c8d733",
+      "source": "rigging_workflow/retarget_mmd_import_worker.py"
+    },
+    "retarget_mmd_job.py": {
+      "sha256": "b6a2c0ee61497072be02b289a4db5f3653e338c0b8455d577d9ed5c396a87cc5",
+      "source": "rigging_workflow/retarget_mmd_job.py"
+    },
+    "retarget_mmd_job_ui.py": {
+      "sha256": "dbdfe1722adc5a3aded5ba74e6d51883957735713626c9254b840a4c9640c3e6",
+      "source": "rigging_workflow/retarget_mmd_job_ui.py"
+    },
+    "retarget_mmd_morph.py": {
+      "sha256": "c2d653f232e136c814012a4222d2706d4cab6365c58d1c3b448c033454892a2a",
+      "source": "rigging_workflow/retarget_mmd_morph.py"
+    },
+    "retarget_mmd_standard.py": {
+      "sha256": "d48e15ce72b08f4661eb88360d587815923fff7fb9eae3def2d6ef9ca2ce6d57",
+      "source": "rigging_workflow/retarget_mmd_standard.py"
+    },
+    "retarget_mmd_ui.py": {
+      "sha256": "8c5ba6813080b764e9f490e604a3c22c63191c8db9ee9bf07c7ddb4a3ec3170f",
+      "source": "rigging_workflow/retarget_mmd_ui.py"
+    },
+    "retarget_modular_target.py": {
+      "sha256": "7e50d44ee4c0715a513cbf38f34c466be4de5ea1707f32dd98ce9a43473ca386",
+      "source": "win53-posing/overlay/retarget_modular_target.py"
+    },
+    "retarget_observed.py": {
+      "sha256": "cd579c2bb01295f22ddf657c2647e3afcf2f909c8f940d4576e7e998eba4e0c9",
+      "source": "rigging_workflow/retarget_observed.py"
+    },
+    "retarget_pipeline.py": {
+      "sha256": "2811a7c7f04155f42ed058ff26da22ba08c75f4c87d1c308afbba890e1138cfc",
+      "source": "rigging_workflow/retarget_pipeline.py"
+    },
+    "retarget_profile.py": {
+      "sha256": "25863f947b5bbabdd273a65cc08de8875b8b9970657342fd39229e53bbee0eee",
+      "source": "win53-posing/overlay/retarget_profile.py"
+    },
+    "retarget_profile_ui.py": {
+      "sha256": "6b52faac0160c8cdcfeb66530ca4b879e37d50198eac38cfdc45d8bd78d67acb",
+      "source": "win53-posing/overlay/retarget_profile_ui.py"
+    },
+    "retarget_publish.py": {
+      "sha256": "cdfbd1c7e3d6f8251a6384182257f1d57b96288f66562e4da7c45531e26c2e81",
+      "source": "rigging_workflow/retarget_publish.py"
+    },
+    "retarget_publish_ui.py": {
+      "sha256": "64d057b15cb850dd9739f0dfb54c2e19d8ad7bac5374973f6d45f80df87bf541",
+      "source": "rigging_workflow/retarget_publish_ui.py"
+    },
+    "retarget_source.py": {
+      "sha256": "40d843e7092673e0a9a946fccbb59777cc68ad0606341b7e3fb93a423da32366",
+      "source": "win53-posing/overlay/retarget_source.py"
+    },
+    "retarget_target_policy.py": {
+      "sha256": "7473be4f756ef437bbcbfa88641d01626aef78f22164194de00ede6a0cc5b955",
+      "source": "win53-posing/overlay/retarget_target_policy.py"
+    },
+    "retarget_ui.py": {
+      "sha256": "0c3365c4d009b04e11f01b0cedeac5eb8f8780be193d56e5c930c5a772b2a325",
+      "source": "rigging_workflow/retarget_ui.py"
+    },
+    "rig_identity.py": {
+      "sha256": "a9be9009030529a80df23e182f5e21d53baf53a524b0eb8efc734b0e0a8fdc81",
+      "source": "cli-v003/rigging_workflow/rig_identity.py"
+    },
+    "selected_skinning.py": {
+      "sha256": "3da9db43f0e15f79653de1cdd6d3330da5a4be1ca90aff46d09d8d896dc8346c",
+      "source": "cli-v003/rigging_workflow/selected_skinning.py"
+    },
+    "shoulder_girdle.py": {
+      "sha256": "5f453b045dca9c3fa0acf12ddc008bba928d8119e19a12290ff26073df51a8b5",
+      "source": "cli-v003/rigging_workflow/shoulder_girdle.py"
+    },
+    "skeleton_collection.py": {
+      "sha256": "f5583bb107f588a064ae915bd8c33c4785325e0a380cec4c269bca0449ceecd7",
+      "source": "cli-v003/rigging_workflow/skeleton_collection.py"
+    },
+    "skeleton_gate.py": {
+      "sha256": "d88e13083cff63e80ea2ee4ec7c1169d07883e80ea10dd3f30a16d748b5258d2",
+      "source": "cli-v003/rigging_workflow/skeleton_gate.py"
+    },
+    "skeleton_neutral_53.py": {
+      "sha256": "0260f476da1e8357062b61fd70cfdcbe8bba506a9283caa8c955544db616e245",
+      "source": "cli-v003/rigging_workflow/skeleton_neutral_53.py"
+    },
+    "skeleton_qc.py": {
+      "sha256": "27c0b32959b457d5953925472f8c62a28a0f2b974192c4c36f151678164b2156",
+      "source": "cli-v003/rigging_workflow/skeleton_qc.py"
+    },
+    "skin_parts.py": {
+      "sha256": "082070470f0c6f29440a3670d4c5a8c77e287d0011f9d1aef4db8d96be7b0065",
+      "source": "rigging_workflow/skin_parts.py"
+    },
+    "skin_parts_ui.py": {
+      "sha256": "1a2c7d7a4db1e11ac440274bcf4cdf8dca98f8f6bb892c173f75293908948a7f",
+      "source": "rigging_workflow/skin_parts_ui.py"
+    },
+    "skinning.py": {
+      "sha256": "5f4635530ddc0ec0bd23aa70f6590d3813d5934030632d08bc5edd002b08dbbb",
+      "source": "cli-v003/rigging_workflow/skinning.py"
+    },
+    "skinning_fields.py": {
+      "sha256": "4dbb7c66854d32c93a70fcfccb193dd05dddfe01720fef834b8c6e760e6cc852",
+      "source": "cli-v003/rigging_workflow/skinning_fields.py"
+    },
+    "skinning_job.py": {
+      "sha256": "aca380c87b98e5b61510f3b82d81a556f6eb25b7ab5a26a97961a83223379e18",
+      "source": "win53-posing/overlay/skinning_job.py"
+    },
+    "skinning_job_worker.py": {
+      "sha256": "59b19313ab9c662430800b56bb2f7a7620870103bed1e2baf690336943de9d39",
+      "source": "cli-v003/rigging_workflow/skinning_job_worker.py"
+    },
+    "skinning_plan.py": {
+      "sha256": "64b17665923d83b7d903842fd906259500f8560f73bac48c96b63f9f4838d189",
+      "source": "cli-v003/rigging_workflow/skinning_plan.py"
+    },
+    "skinning_plan_ui.py": {
+      "sha256": "969042b7407b62d1552501540b9f770525d74ee2fd47d2617e1eb408dc3ea446",
+      "source": "rigging_workflow/skinning_plan_ui.py"
+    },
+    "skinning_plan_worker.py": {
+      "sha256": "9e737f64f596dd9db1158b01d27d27e28ba10b51943c7a73b389b1bcaadf3db3",
+      "source": "cli-v003/rigging_workflow/skinning_plan_worker.py"
+    },
+    "skinning_policy.py": {
+      "sha256": "036b3391f60c9e7292dd518860bc841de8155ea825bdf4b206d2633712566857",
+      "source": "cli-v003/rigging_workflow/skinning_policy.py"
+    },
+    "skinning_policy_ui.py": {
+      "sha256": "3c15b0ddb42ed603ed67f08fbc3923fcd0aad3c45d517b6c9ef2b377d610654a",
+      "source": "rigging_workflow/skinning_policy_ui.py"
+    },
+    "skinning_ui.py": {
+      "sha256": "0c6d9bbf04ee9e31d29c926cd71e21f70b6e35748a80b97f88dcbe90a214d66c",
+      "source": "rigging_workflow/skinning_ui.py"
+    },
+    "surface_bake.py": {
+      "sha256": "e6e5d47c6cb530c747398485540818c650e30119ec2d2bbd0c82faec5a420d6c",
+      "source": "rigging_workflow/surface_bake.py"
+    },
+    "surface_dynamic.py": {
+      "sha256": "bb2f5a725f9b05fc52d930d85fa761bdd9a08c2ba3784ed7d4d44e8c5b80bd16",
+      "source": "rigging_workflow/surface_dynamic.py"
+    },
+    "surface_dynamic_ui.py": {
+      "sha256": "4f60cc0e3747e4123b491918a6db6787bab7a743178d82b91a4ef63905ed4653",
+      "source": "rigging_workflow/surface_dynamic_ui.py"
+    },
+    "template.py": {
+      "sha256": "3fd2085b27207051995ae1e7014362a9d81244a5afe26ff3818462a2b480e1d2",
+      "source": "rigging_workflow/template.py"
+    },
+    "template_bundle.py": {
+      "sha256": "2b539cc1952172cfdd59986c4877913f16698f442237e7c5f2047c157384cb41",
+      "source": "rigging_workflow/template_bundle.py"
+    },
+    "three_beats_ui.py": {
+      "sha256": "e17e4e21adc726c401eaed9a66aaafeabbbfb78643ba1ff9a527d907f066c7ce",
+      "source": "win53-posing/overlay/three_beats_ui.py"
+    },
+    "ui.py": {
+      "sha256": "866ae60e0b5b3c80d5f75038b065e11f0884b60ea69f8309b783c3ef27524452",
+      "source": "rigging_workflow/ui.py"
+    },
+    "vendor/__init__.py": {
+      "sha256": "48d958195e52892ab4749b62a18f75b0e5f9c50d52d94ff35035a3041733bd41",
+      "source": "rigging_workflow/vendor/__init__.py"
+    },
+    "vendor/pycpd/LICENSE": {
+      "sha256": "7c721ab377c1bcc5517d0f42589a57dcb1c2f9162d9c1a81d91e6230b1dbb18b",
+      "source": "rigging_workflow/vendor/pycpd/LICENSE"
+    },
+    "vendor/pycpd/__init__.py": {
+      "sha256": "e5843bd07dfb3973df24f9564cb2488145d882b66bc7734776cab52800761880",
+      "source": "rigging_workflow/vendor/pycpd/__init__.py"
+    },
+    "vendor/pycpd/deformable_registration.py": {
+      "sha256": "6b80c3c5144e6f39c188784fe65ff2eab6a0a81b65fca04ee4a7e4c1ed2b66a8",
+      "source": "rigging_workflow/vendor/pycpd/deformable_registration.py"
+    },
+    "vendor/pycpd/emregistration.py": {
+      "sha256": "d8656ae5e5b00b7004ecbfcdf683808769c0cfee7a3d7077082f2107a83ac70e",
+      "source": "rigging_workflow/vendor/pycpd/emregistration.py"
+    },
+    "vendor/pycpd/utility.py": {
+      "sha256": "ebab0df06255d71a6e2c8082117ff8d9d0bc7c2119a341da666044571a637340",
+      "source": "rigging_workflow/vendor/pycpd/utility.py"
+    },
+    "volume/LICENSE": {
+      "sha256": "8ceb4b9ee5adedde47b31e975c1d90c73ad27b6b165a1dcd80c7c545eb65b903",
+      "source": "rigging_workflow/volume/LICENSE"
+    },
+    "volume/__init__.py": {
+      "sha256": "00feb57146c8e54ca1409aac2c7696aa54dd5c4f71c84bb889f5c43d09c2d5b9",
+      "source": "rigging_workflow/volume/__init__.py"
+    },
+    "volume/contract.py": {
+      "sha256": "4c9e80a1a13f2e79b6b0e98f815d3c0d31b5816460be220bdac1a290edaeed91",
+      "source": "cli-v003/rigging_workflow/volume/contract.py"
+    },
+    "volume/cuda/direct_pcg.cu": {
+      "sha256": "97a02a6e39058bbfa2c3412ef2cae35ecdd8937707720ec90b0886506a4600ba",
+      "source": "cli-v003/rigging_workflow/volume/cuda/direct_pcg.cu"
+    },
+    "volume/cuda_backend.py": {
+      "sha256": "3e3713df3bf1ec52501d53f42c5df14b82b76e9b0a1e6b51f0a37fec61ede526",
+      "source": "cli-v003/rigging_workflow/volume/cuda_backend.py"
+    },
+    "volume/cuda_kernels.py": {
+      "sha256": "af57298dec9ff2f9fc5abb0c39a5477e9eb6f6b4fde5315b10f9a47a0a5ab465",
+      "source": "cli-v003/rigging_workflow/volume/cuda_kernels.py"
+    },
+    "volume/domain_cache.py": {
+      "sha256": "a8e07a70bdc5af75cf4ecb15cd102296ec01e4d1247cfaf1de28c72616abe292",
+      "source": "cli-v003/rigging_workflow/volume/domain_cache.py"
+    },
+    "volume/geometry.py": {
+      "sha256": "4b2ed20cc7f6e38240c3a889d34bbf1cdd355db4e07f4c444d1bc611b18a2bbc",
+      "source": "cli-v003/rigging_workflow/volume/geometry.py"
+    },
+    "volume/solver.py": {
+      "sha256": "cb5cf0f614a237c54de002f018fb71274fe6dcc27690b492a7271067c038e4eb",
+      "source": "cli-v003/rigging_workflow/volume/solver.py"
+    },
+    "volume_domains.py": {
+      "sha256": "49194d64596d6130b252b7e30b5eca224c2825865cfc604f4376cd3dfcf02f73",
+      "source": "rigging_workflow/volume_domains.py"
+    },
+    "weight_paint.py": {
+      "sha256": "9e20699f2cfb29126dd5396d2b3ec7c11e516ac192544060b757142f5522c6fd",
+      "source": "win53-posing/overlay/weight_paint.py"
+    },
+    "weight_repair.py": {
+      "sha256": "2b07296a0d2075ee0b9852da6509da0ce5497b06fbd470a1b7d12e0499b6e4ce",
+      "source": "win53-posing/overlay/weight_repair.py"
+    },
+    "weight_repair_diagnostics.py": {
+      "sha256": "a977277790a82007965261967c574f003d28dc48c6fbaad3d43bdc14b124c910",
+      "source": "win53-posing/overlay/weight_repair_diagnostics.py"
+    },
+    "weight_repair_math.py": {
+      "sha256": "84eb8017d8fdea665d56451fcbccecc6cc3b2bd115222232323418039cf81753",
+      "source": "win53-posing/overlay/weight_repair_math.py"
+    },
+    "weight_repair_ui.py": {
+      "sha256": "e5746de96eae6114d12e080d24696202dbfd0e5375da80cb9ab82cdcab5a5320",
+      "source": "win53-posing/overlay/weight_repair_ui.py"
+    },
+    "worker_channel.py": {
+      "sha256": "1b2583d57c40798c8584c2be5248ff9c4bf02ceffb8a3f5407c78f6bf196a082",
+      "source": "cli-v003/rigging_workflow/worker_channel.py"
+    },
+    "workflow_entry.py": {
+      "sha256": "6134c5e8c9c075c69366573454ee3129a2bf0aac4b86a0fdede890e99f6cc71e",
+      "source": "cli-v003/rigging_workflow/workflow_entry.py"
+    },
+    "workflow_navigation.py": {
+      "sha256": "8641fd38020d66c8e4d7674012211badc03fc1070a240604375f7a68b77f826d",
+      "source": "win53-posing/overlay/workflow_navigation.py"
+    },
+    "workflow_ui.py": {
+      "sha256": "1fa3cf3549878ae09ab2957ac020ce48c6b00507665a77788bf4d1ec1c059578",
+      "source": "win53-posing/overlay/workflow_ui.py"
+    },
+    "workspace_setup.py": {
+      "sha256": "26e10a3f99ec788c1795dd2becdc25fb8d0884accea4c216c94c85e042099391",
+      "source": "rigging_workflow/workspace_setup.py"
+    }
+  },
+  "host": {
+    "blender": "5.3.0",
+    "build": "02f0899d78e3",
+    "offline": true
+  }
+}

@@ -15,3 +15,4 @@ jobs:
         with:
           python-version: ${{ matrix.python }}
       - run: python -B scripts/build_release.py
+      - run: python -B scripts/build_win53_posing.py --output dist/rigging_workflow-win53-posing.zip

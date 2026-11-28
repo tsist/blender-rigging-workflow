@@ -177,8 +177,10 @@ def capture_affines(obj, rig):
     return result
 
 
-def _controls(rig, enabled, mix):
-    settings = rig.pose.bones.get('骨架设置')
+def _controls(rig, enabled, mix, settings_control=None):
+    from . import secondary_dynamics
+
+    settings = secondary_dynamics.control(rig, settings_control)
     _require(settings is not None and isinstance(enabled, str) and isinstance(mix, str)
              and enabled != mix and enabled in settings and mix in settings,
              '先在骨架设置建立明确的组启用/混合原生属性')
@@ -219,10 +221,11 @@ def _value_driver(block, carrier, rig, scene, settings, enabled, mix, time, step
 
 class Prepared:
     """Live transaction. Geometry arrays are readonly; no disk token restores it."""
-    def __init__(self, obj, rig, times, coordinates, *, label, enabled, mix, validate_source):
+    def __init__(self, obj, rig, times, coordinates, *, label, enabled, mix, validate_source, settings_control=None):
         self.source, self.rig, self.scene = obj, rig, bpy.context.scene
         self.times, self.coordinates = times, coordinates
         self.label, self.enable_property, self.mix_property = label, enabled, mix
+        self.settings_control = settings_control
         self.validate_source = validate_source
         self._before = _static(obj, rig)
         self.object = self.carrier = self.action = None
@@ -232,7 +235,7 @@ class Prepared:
     def _check(self):
         _require(bpy.context.scene == self.scene and _static(self.source, self.rig) == self._before,
                  '残差源几何/权重/堆栈/Key身份或静态输入改变，请重新捕获')
-        _controls(self.rig, self.enable_property, self.mix_property)
+        _controls(self.rig, self.enable_property, self.mix_property, self.settings_control)
         if self.validate_source is not None:
             _require(self.validate_source() is not False, '基础动作或时序总体签名改变，请重新捕获')
 
@@ -290,7 +293,7 @@ class Prepared:
             carrier.empty_display_size = .05
             carrier[CLOCK] = float(self.times[0])
             carrier[FROZEN] = False
-            settings = _controls(self.rig, self.enable_property, self.mix_property)
+            settings = _controls(self.rig, self.enable_property, self.mix_property, self.settings_control)
             for index, (time, coordinates) in enumerate(zip(self.times, self.coordinates)):
                 block = obj.shape_key_add(name='残差_%04d' % index, from_mix=False)
                 block.relative_key = basis
@@ -356,7 +359,7 @@ class Prepared:
 
 
 def prepare(obj, rig, times, world_positions, affines, *, label,
-            enable_property, mix_property, validate_source=None):
+            enable_property, mix_property, validate_source=None, settings_control=None):
     """Inverse each actual source-time LBS; never freeze the current rig pose.
 
     Samples are uniform source frames including both endpoints. Position units
@@ -364,7 +367,7 @@ def prepare(obj, rig, times, world_positions, affines, *, label,
     native Blender allocations still require a bounded source/clip selection.
     """
     _supported(obj, rig)
-    _controls(rig, enable_property, mix_property)
+    _controls(rig, enable_property, mix_property, settings_control)
     _require(isinstance(label, str) and label.strip(), '明确填写独立残差对象名称')
     _require(validate_source is None or callable(validate_source), 'validate_source须为无参检查回调')
     times = np.asarray(times)
@@ -404,6 +407,7 @@ def prepare(obj, rig, times, world_positions, affines, *, label,
     frozen_times.setflags(write=False)
     coordinates.setflags(write=False)
     result = Prepared(obj, rig, frozen_times, coordinates, label=label.strip(),
-                      enabled=enable_property, mix=mix_property, validate_source=validate_source)
+                      enabled=enable_property, mix=mix_property, validate_source=validate_source,
+                      settings_control=settings_control)
     result._check()
     return result

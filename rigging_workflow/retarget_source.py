@@ -2,6 +2,7 @@
 """Explicit source import and semantic mapping. No production-scene retiming."""
 import json
 from pathlib import Path
+import re
 import bpy
 
 SOURCE_KEY='c94_retarget_source_v1'
@@ -110,6 +111,90 @@ def exact_cmu_mapping(rig):
             'missing_optional':['spine1'],'unmapped_channels':['fingers','gaze','camera'],
             'support':'body_development_candidate','validation':'exact names and exact parent links'}
 
+_LIMB_NAMES = {
+    "shoulder": ("clavicle", "collar", "shoulder"),
+    "upper_arm": ("upperarm", "arm", "humerus"),
+    "forearm": ("forearm", "lowerarm", "ulna"),
+    "hand": ("hand", "wrist"),
+    "thigh": ("thigh", "upleg", "upperleg", "femur"),
+    "shin": ("shin", "calf", "leg", "lowerleg", "tibia"),
+    "foot": ("foot", "ankle"),
+    "toes": ("toes", "toe", "toebase", "ball"),
+}
+_TORSO_NAME = re.compile(r"(?:spine|chest|thorax|torso)[0-9]*")
+
+
+def propose_fbx_mapping(rig):
+    """Suggest body roles using known names and connected limb chains."""
+    armature(rig)
+    try:
+        exact = mapping(rig)
+    except ValueError:
+        exact = None
+    if exact is not None:
+        hip = rig.data.bones[exact["bones"]["hips"]]
+        root = hip.parent_recursive[-1] if hip.parent else hip
+        return {"bones": exact["bones"], "root": root.name, "preset": exact["preset"],
+                "missing": [], "ambiguous": {}}
+
+    lookup = {}
+    tokens = {}
+    for bone in rig.data.bones:
+        token = re.sub(r"[^a-z0-9]", "", bone.name.rsplit(":", 1)[-1].lower())
+        tokens[bone.name] = token
+        lookup.setdefault(token, []).append(bone)
+    bones = {}
+    ambiguous = {}
+
+    def choose(semantic, names, ancestor=None):
+        choices = sorted({bone.name for name in names for bone in lookup.get(name, ())
+                          if ancestor is None or ancestor in bone.parent_recursive})
+        if len(choices) == 1:
+            bones[semantic] = choices[0]
+            return rig.data.bones[choices[0]]
+        if choices:
+            ambiguous[semantic] = choices
+        return None
+
+    hips = choose("hips", ("hips", "hip", "pelvis"))
+    head = choose("head", ("head", "head01", "skull"), hips)
+    for side, word in (("L", "left"), ("R", "right")):
+        for chain in (("shoulder", "upper_arm", "forearm", "hand"),
+                      ("thigh", "shin", "foot", "toes")):
+            ancestor = hips
+            for role in chain:
+                names = {form for alias in _LIMB_NAMES[role] for marker in (side.lower(), word)
+                         for form in (marker + alias, alias + marker)}
+                match = choose(role + "." + side, names, ancestor)
+                if match is not None:
+                    ancestor = match
+
+    arms = [rig.data.bones.get(bones.get("upper_arm." + side, "")) for side in ("L", "R")]
+    if hips is not None and head is not None and all(arm is not None for arm in arms):
+        # The thoracic link is the nearest named torso ancestor of the head
+        # that also carries both arms. Helper branches stay out of this path.
+        arm_chains = [set(bone.parent_recursive) for bone in arms]
+        for candidate in head.parent_recursive:
+            if (_TORSO_NAME.fullmatch(tokens[candidate.name])
+                    and hips in candidate.parent_recursive
+                    and all(candidate in chain for chain in arm_chains)):
+                bones["chest"] = candidate.name
+                spine = [joint.name for joint in candidate.parent_recursive
+                         if hips in joint.parent_recursive and _TORSO_NAME.fullmatch(tokens[joint.name])]
+                if spine:
+                    bones["spine"] = spine[-1]
+                if len(spine) == 2:
+                    bones["spine1"] = spine[0]
+                elif len(spine) > 2:
+                    ambiguous["spine1"] = list(reversed(spine[:-1]))
+                choose("neck", ("neck", "neck1", "neck01", "cervical"), candidate)
+                break
+
+    root = hips.parent_recursive[-1].name if hips is not None and hips.parent else bones.get("hips")
+    return {"bones": bones, "root": root, "preset": "generic_fbx_profile",
+            "missing": sorted(REQUIRED - bones.keys()), "ambiguous": ambiguous}
+
+
 def active_clip(rig,source_fps=None):
     armature(rig)
     ad=rig.animation_data
@@ -138,6 +223,44 @@ def active_clip(rig,source_fps=None):
     return {'action':action,'slot':slot,'fps':float(source_fps),'range':(min(times),max(times)),
             'evaluation':'selected_action_no_nla','nla_preserved':True}
 
+def _is_alternate_armature_slot(rig, action, slot):
+    if slot.target_id_type != 'OBJECT' or any(owner != rig for owner in slot.users()):
+        return False
+    paths = set()
+    for layer in action.layers:
+        for strip in layer.strips:
+            if strip.type == 'KEYFRAME':
+                bag = strip.channelbag(slot)
+                if bag:
+                    paths.update(curve.data_path for curve in bag.fcurves)
+    if not any(path.startswith('pose.bones[') for path in paths):
+        return False
+    try:
+        for path in paths:
+            rig.path_resolve(path)
+    except ValueError:
+        return False
+    return True
+
+
+def _mark_fbx_take_timebase(rig, imported_actions, clip):
+    """Apply the file-global rate only to confirmed slots of new Actions."""
+    active_action, active_slot = clip['action'], clip['slot']
+    require(active_action in imported_actions, '当前源Action不是本次FBX导入新建；请明确源fps')
+    for action in imported_actions:
+        if action == active_action:
+            slot = active_slot
+        else:
+            if TIME_KEY in action:
+                continue
+            slot = next((candidate for candidate in action.slots
+                         if candidate.identifier == active_slot.identifier
+                         and candidate.name_display == rig.name), None)
+            if slot is None or not _is_alternate_armature_slot(rig, action, slot):
+                continue
+        action[TIME_KEY] = json.dumps({'fps':clip['fps'],'slots':[slot.identifier]}, ensure_ascii=False)
+
+
 def import_fbx(filepath,*,provenance=None):
     """Keep imported IDs; restore scene fps/range/camera and selection."""
     path=Path(filepath).resolve(strict=True)
@@ -147,7 +270,7 @@ def import_fbx(filepath,*,provenance=None):
     old=(scene.render.fps,scene.render.fps_base,scene.frame_start,scene.frame_end,
          scene.frame_current,scene.frame_subframe,scene.camera)
     selected=list(bpy.context.selected_objects); active=bpy.context.view_layer.objects.active
-    before=set(bpy.data.objects); imported=[]
+    before=set(bpy.data.objects); before_actions=set(bpy.data.actions); imported=[]
     try:
         require(hasattr(bpy.ops.wm.fbx_import,'get_rna_type'),'当前版本未暴露原生FBX导入器')
         status=bpy.ops.wm.fbx_import(filepath=str(path),use_anim=True)
@@ -162,7 +285,7 @@ def import_fbx(filepath,*,provenance=None):
                 'importer':'wm.fbx_import','scene_settings_preserved':True}
         rig[SOURCE_KEY]=json.dumps(record,ensure_ascii=False)
         clip=active_clip(rig,fps)
-        clip['action'][TIME_KEY]=json.dumps({'fps':fps,'slots':[clip['slot'].identifier]},ensure_ascii=False)
+        _mark_fbx_take_timebase(rig, set(bpy.data.actions)-before_actions, clip)
         return {'rig':rig,'objects':imported,'clip':clip,'record':record}
     except Exception as exc:
         # A native importer may invoke foreign handlers. An ID difference is

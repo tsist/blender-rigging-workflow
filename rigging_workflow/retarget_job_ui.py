@@ -135,9 +135,9 @@ def _item_request(item):
     return value
 
 class C94RETARGETJOB_Item(bpy.types.PropertyGroup):
-    action:PointerProperty(name='源Action',type=bpy.types.Action)
-    slot_identifier:StringProperty(name='来源Slot标识')
-    fps_mode:EnumProperty(name='来源时基',items=(('RECORDED','使用该Slot已登记时基','无记录的条目会单独失败'),
+    action:PointerProperty(name='源动作',type=bpy.types.Action)
+    slot_identifier:StringProperty(name='来源动作槽标识')
+    fps_mode:EnumProperty(name='来源时基',items=(('RECORDED','使用该动作槽已登记时基','无记录的条目会单独失败'),
         ('EXPLICIT','明确指定源帧率','仅用于已核实的来源帧率')),default='RECORDED')
     fps:FloatProperty(name='源帧率',default=30,min=.01,max=1000)
     start:FloatProperty(name='源起帧',default=1)
@@ -160,7 +160,7 @@ class C94RETARGETJOB_Options(bpy.types.PropertyGroup):
 class C94RETARGETJOB_UL_queue(bpy.types.UIList):
     def draw_item(self,context,layout,data,item,icon,active_data,active_propname,index):
         row=layout.row(align=True)
-        row.label(text=item.action.name if item.action else '未选择Action',icon='ACTION')
+        row.label(text=item.action.name if item.action else '未选择动作',icon='ACTION')
         row.label(text=f'{item.start:g} → {item.end:g}')
 
 class C94RETARGETJOB_OT_queue(bpy.types.Operator):
@@ -191,8 +191,8 @@ class C94RETARGETJOB_OT_queue(bpy.types.Operator):
 
 class C94RETARGETJOB_OT_slot(bpy.types.Operator):
     bl_idname='c94_workflow.retarget_queue_slot'
-    bl_label='选择来源Action的Slot'
-    slot:EnumProperty(name='来源Slot',items=_slot_items)
+    bl_label='选择来源动作的动作槽'
+    slot:EnumProperty(name='来源动作槽',items=_slot_items)
     def invoke(self,context,_event):return context.window_manager.invoke_props_dialog(self)
     def execute(self,context):
         try:
@@ -276,14 +276,14 @@ def draw_queue_editor(layout,context):
     """Shared queue form; all source-specific panels keep the same inputs."""
     opts=_opts(context)
     layout.template_list('C94RETARGETJOB_UL_queue','',opts,'items',opts,'index',rows=3,maxrows=6)
-    layout.operator('c94_workflow.retarget_queue',text='添加当前Action').operation='ADD'
+    layout.operator('c94_workflow.retarget_queue',text='添加当前动作').operation='ADD'
     row=layout.row(align=True)
     for value,label in (('REMOVE','移除条目'),('CLEAR','清空队列')):
         row.operator('c94_workflow.retarget_queue',text=label).operation=value
     if opts.items and opts.index<len(opts.items):
         item=opts.items[opts.index];box=layout.box();box.prop(item,'action');box.prop(item,'slot_identifier')
         row=box.row(align=True)
-        row.operator('c94_workflow.retarget_queue_slot',text='选择Slot并读取范围')
+        row.operator('c94_workflow.retarget_queue_slot',text='选择动作槽并读取范围')
         row.operator('c94_workflow.retarget_queue',text='读取范围').operation='READ_CLIP'
         box.prop(item,'fps_mode')
         if item.fps_mode=='EXPLICIT':box.prop(item,'fps')
@@ -339,7 +339,7 @@ class C94RETARGETJOB_PT_queue(bpy.types.Panel):
         row=layout.row(align=True);row.prop(opts,'max_seconds');row.prop(opts,'threads')
         draw_queue_editor(layout,context)
         row=layout.row(align=True);row.enabled=session is None
-        row.operator('c94_workflow.retarget_background',text='后台处理当前Action').operation='ENQUEUE_CURRENT'
+        row.operator('c94_workflow.retarget_background',text='后台处理当前动作').operation='ENQUEUE_CURRENT'
         row.operator('c94_workflow.retarget_background',text='后台处理队列').operation='ENQUEUE_QUEUE'
         if session is not None:
             draw_job_session(layout,context,session)

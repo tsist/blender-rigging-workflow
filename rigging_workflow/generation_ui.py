@@ -18,9 +18,10 @@ _REGISTERED = []
 
 def reference(context):
     state = positioning.read_state(context.scene)
-    if not state:
+    fitted_name = state.get('fitted_reference') if state else None
+    if not isinstance(fitted_name, str) or not fitted_name:
         raise ValueError('先完成角色参考骨定位')
-    rig = context.scene.objects.get(state.get('fitted_reference', ''))
+    rig = context.scene.objects.get(fitted_name)
     if not rig or rig.type != 'ARMATURE' or rig.get(positioning.OWNER_KEY) != state.get('owner'):
         raise ValueError('定位记录中的参考骨不存在或身份不匹配')
     options = getattr(context.scene, OPTIONS, None)
@@ -80,7 +81,7 @@ def _activate(context, rig):
 
 class C94GEN_Options(bpy.types.PropertyGroup):
     template_file: StringProperty(name='私有模板库', subtype='FILE_PATH',
-        description='选择有权使用的本机C94私有.blend模板库；代码包不附带角色资产')
+        description='选择本机有权使用的角色模板库（.blend）')
     label: StringProperty(name='角色名称', default='Myona',
         description='用于新生成候选的名称；已有候选保留，不覆盖')
     use_configuration: BoolProperty(name='使用模块配置', default=False,
@@ -90,7 +91,8 @@ class C94GEN_Options(bpy.types.PropertyGroup):
     configuration_file: StringProperty(name='新配置模板文件', subtype='FILE_PATH',
         description='填写新建配置模板库的绝对.blend路径；已有文件不会覆盖')
     source_rig: StringProperty(name='原绑定骨架',
-        description='选择本次保留的原C94骨架；只重建明确选中的网格副本')
+        description='选择本次保留的原角色骨架，只重建明确选中的网格副本')
+    rebuild_candidate_id: StringProperty(name='保存的模块重建候选 ID')
     reference_object: StringProperty(name='本次完整参考',
         description='留空使用定位参考；附属链准备后指向独立完整参考副本，原参考保持')
     face: BoolProperty(name='面部模块', default=True)
@@ -160,48 +162,58 @@ class C94GEN_OT_PrepareConfiguration(bpy.types.Operator):
 
 class C94GEN_OT_Rebuild(bpy.types.Operator):
     bl_idname = 'c94_workflow.rebuild_bound_copy'
-    bl_label = 'C94模块重建（保留兼容权重）'
-    bl_description = '同参考C94的模块返工保留兼容权重；新附属方案或其它旧绑定请用角色新建与已有绑定重建入口'
+    bl_label = '重建角色模块并保留兼容权重'
+    bl_description = '无权重准备，保存候选并双审，再按实际作用范围创建迁权副本'
+    action: StringProperty(default='LEGACY', options={'HIDDEN'})
 
     @classmethod
     def poll(cls, context):
         return bool(context.scene and context.mode == 'OBJECT')
 
     def execute(self, context):
+        from . import candidate_state, rebuild
+
+        options = getattr(context.scene, OPTIONS)
         try:
-            ref = reference(context)
-            options = getattr(context.scene, OPTIONS)
-            path = Path(bpy.path.abspath(options.template_file)).expanduser()
-            config = _configuration(context, ref, path)
-            if config is None:
-                raise ValueError('此副本重建切片需要先准备明确模块配置')
-            source = context.scene.objects.get(options.source_rig)
-            meshes = [o for o in context.selected_objects if o.type == 'MESH']
-            from . import rebuild
-            output = rebuild.rebuild(context.scene, ref, str(path), config, source, meshes,
-                                     label=options.label.strip())
+            if self.action == 'PREPARE':
+                ref = reference(context)
+                path = Path(bpy.path.abspath(options.template_file)).expanduser()
+                config = _configuration(context, ref, path)
+                if config is None:
+                    raise ValueError('此副本重建需要先准备明确模块配置')
+                meshes = [obj for obj in context.selected_objects if obj.type == 'MESH']
+                output = rebuild.prepare_candidate(context.scene, ref, str(path), config,
+                                                   context.scene.objects.get(options.source_rig),
+                                                   meshes, label=options.label)
+                options.rebuild_candidate_id = output['candidate_id']
+            elif self.action == 'INSPECT':
+                rig, _, scope, _, _ = rebuild.inspect_candidate(context.scene, options.rebuild_candidate_id)
+                self.report({'INFO'}, '待审 ' + rig.name + ' · ' + candidate_state.scope_digest(scope))
+                return {'FINISHED'}
+            elif self.action == 'APPLY':
+                output = rebuild.apply_candidate(context.scene, options.rebuild_candidate_id)
+            else:
+                raise ValueError('旧整步重建入口已停用；先生成候选骨架，保存并审核范围后再采用')
         except Exception as exc:
             self.report({'ERROR'}, '副本重建失败：' + str(exc))
-            traceback.print_exc()
             return {'CANCELLED'}
-        warnings = []
+
         try:
-            context.scene[RESULT] = json.dumps({'schema':'c94.rebuild-ui-result.v1',
-                'rig_object':output['rig'].name, 'collection':output['collection'].name,
-                'objects':[o.name for o in output['objects']], 'report':output['report']},
-                ensure_ascii=False, allow_nan=False)
+            context.scene[RESULT] = json.dumps({'schema': 'c94.rebuild-ui-result.v1',
+                'rig_object': output['rig'].name, 'collection': output['collection'].name,
+                'objects': [obj.name for obj in output['objects']], 'report': output['report'],
+                'candidate_id': output['candidate_id']}, ensure_ascii=False, allow_nan=False)
             _activate(context, output['rig'])
         except Exception as exc:
-            warnings.append(str(exc))
-        self.report({'WARNING'} if warnings else {'INFO'},
-            '已保留原绑定并创建新骨架及%d件网格副本%s' % (len(output['objects']),
-            '；结果/选择提示：'+'；'.join(warnings) if warnings else ''))
+            self.report({'WARNING'}, '候选已保留；无法更新界面状态或选择：' + str(exc))
+            return {'FINISHED'}
+        self.report({'INFO'}, '已准备无权重最终骨架；保存并申请审核'
+                              if self.action == 'PREPARE' else '已按双审创建独立迁权副本')
         return {'FINISHED'}
-
 
 class C94GEN_OT_ChooseTemplate(bpy.types.Operator):
     bl_idname = 'c94_workflow.choose_generation_template'
-    bl_label = '选择私有C94模板库'
+    bl_label = '选择角色模板库'
     filepath: StringProperty(subtype='FILE_PATH')
     filter_glob: StringProperty(default='*.blend', options={'HIDDEN'})
 
@@ -217,7 +229,7 @@ class C94GEN_OT_ChooseTemplate(bpy.types.Operator):
 
 class C94GEN_OT_Generate(bpy.types.Operator):
     bl_idname = 'c94_workflow.generate_rig'
-    bl_label = '生成完整C94骨架与基础面板'
+    bl_label = '生成标准角色骨架与控制面板'
     bl_description = '从当前参考骨和选定私有模板库生成新的角色候选；保留已有输出'
 
     @classmethod
@@ -252,7 +264,7 @@ class C94GEN_OT_Generate(bpy.types.Operator):
             if previous:
                 raise ValueError('此参考骨已生成同名候选“' + previous.name + '”；可选择已有角色，或为新候选更换角色名称')
             # The UI never reimplements fitting, constraints or generation.
-            from . import character_generation, accessory_ui
+            from . import character_generation, accessory_ui, workbench_ui
             output = character_generation.generate(context.scene, ref, str(path), label=label,
                 configuration=config, chain_record=accessory_ui.reference_record(context.scene, ref, validate=True))
             if not isinstance(output, dict):
@@ -262,6 +274,7 @@ class C94GEN_OT_Generate(bpy.types.Operator):
                 raise RuntimeError('生成器没有交回场景内的角色骨架')
             if not isinstance(collection, bpy.types.Collection) or not _json(rig.get(RIG_KEY)):
                 raise RuntimeError('生成器没有交回有效集合或角色生成记录')
+            workbench_ui.apply_collection_theme(collection, workbench_ui.DOMAIN)
         except Exception as exc:
             self.report({'ERROR'}, '生成失败：' + str(exc))
             traceback.print_exc()
@@ -318,7 +331,7 @@ class C94GEN_OT_SelectExisting(bpy.types.Operator):
 
 
 class C94GEN_PT_Generation(bpy.types.Panel):
-    bl_label = 'C94角色生成'
+    bl_label = '标准角色生成'
     bl_idname = 'C94GEN_PT_generation'
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
@@ -379,7 +392,7 @@ class C94GEN_PT_Generation(bpy.types.Panel):
         if context.mode != 'OBJECT':
             layout.label(text='请切到对象模式再生成', icon='INFO')
         if not advanced:
-            layout.label(text='完成配置后，在下方新建角色并绑定网格', icon='INFO')
+            layout.label(text='确认配置后生成骨架，再到蒙皮页绑定网格', icon='INFO')
             return
         layout.operator('c94_workflow.generate_rig', icon='ARMATURE_DATA')
         candidate = None
@@ -394,14 +407,16 @@ class C94GEN_PT_Generation(bpy.types.Panel):
         if candidate:
             layout.label(text='已有候选：' + candidate.name, icon='CHECKMARK')
             layout.operator('c94_workflow.select_generated_rig', icon='RESTRICT_SELECT_OFF')
-        layout.label(text='输出为完整C94骨架与基础面板', icon='INFO')
-        layout.label(text='角色蒙皮仍需后续步骤')
+        layout.label(text='生成完整角色骨架与控制面板，再到蒙皮页绑定网格', icon='INFO')
         box = layout.box()
-        box.label(text='已有C94模块返工：保留兼容权重')
+        box.label(text='保留兼容权重并重建已有角色模块')
         box.prop_search(options, 'source_rig', context.scene, 'objects')
         box.label(text='明确选中%d件网格；原绑定保留' % sum(o.type=='MESH' for o in context.selected_objects))
-        box.operator('c94_workflow.rebuild_bound_copy', icon='DUPLICATE')
-        box.label(text='当前支持：中立C94、无Key/非空旧动画的网格')
+        box.operator('c94_workflow.rebuild_bound_copy', text='生成无权重审核骨架', icon='DUPLICATE').action = 'PREPARE'
+        box.prop(options, 'rebuild_candidate_id')
+        box.operator('c94_workflow.rebuild_bound_copy', text='核对实际审核范围').action = 'INSPECT'
+        box.operator('c94_workflow.rebuild_bound_copy', text='按双审范围采用迁权').action = 'APPLY'
+        box.label(text='要求角色处于中立姿态，网格无形态键或有效旧动画')
         box.label(text='新附属方案或其它旧绑定：使用下方角色新建入口')
 
 

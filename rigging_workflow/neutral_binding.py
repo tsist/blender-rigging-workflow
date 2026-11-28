@@ -160,9 +160,11 @@ def capture_verified(rig, metadata, verification, mechanism_error, scale):
     _require(set(verification) >= {'sample_max', 'head_tail_max', 'sample_count'} and
              type(verification['sample_count']) is int and verification['sample_count'] == len(names) * 15,
              '生成中立验证报告不完整')
-    for value in (verification['sample_max'], verification['head_tail_max'], mechanism_error):
+    for field, value in (('sample_max', verification['sample_max']),
+                         ('head_tail_max', verification['head_tail_max']),
+                         ('mechanism_max', mechanism_error)):
         _require(type(value) in (float, int) and math.isfinite(value) and 0 <= value <= TOLERANCE,
-                 '生成尚未通过原生中立校验，不能记录基线')
+                 f'生成尚未通过原生中立校验，不能记录基线（{field}={value!r}，上限{TOLERANCE:g}）')
     signature = metadata.get('reference_signature')
     _require(isinstance(signature, str) and len(signature) == 64,
              '生成参考身份未绑定，不能记录中立基线')

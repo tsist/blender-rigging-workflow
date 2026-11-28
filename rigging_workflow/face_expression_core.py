@@ -148,6 +148,27 @@ def _baseline(rig, fingerprint, *, mode=True):
         _require(fm._mode(rig) == 'KEY', '请先切到形态键模式；骨控模式下本组Key输出为0')
 
 
+def _maintenance_member_references(rig, obj):
+    """Identify the pack's two explicit ownership references for this member."""
+    from . import native_maintenance as maintenance
+
+    state = rig.get(maintenance.STATE_KEY)
+    if (not state or state.get('version') != maintenance._VERSION
+            or state.get('rig') != rig or state.get('owned_armature') != rig.data):
+        return False, False
+    members = state.get('objects')
+    if members is None:
+        return False, False
+    indices = [index for index, name in enumerate(sorted(members.keys())) if members[name] == obj]
+    if len(indices) != 1:
+        return False, False
+    index = indices[0]
+    owned_data = state.get('owned_data', {})
+    owned_keys = state.get('owned_keys', {})
+    return (owned_data.get('member_%06d' % (index + 1)) == obj.data,
+            owned_keys.get('member_%06d' % index) == obj.data.shape_keys)
+
+
 def _read(hub):
     _local(hub, 'EMPTY')
     try:
@@ -175,10 +196,13 @@ def _read(hub):
                      '表情参数必须在0..1内')
         for index, obj in enumerate(members):
             _local(obj, 'MESH')
-            _require(obj.data.is_editable and not obj.data.library and not obj.data.override_library
-                     and obj.data.users == 1, '同步Mesh必须本地可编辑且单用户')
             keys = obj.data.shape_keys
-            _require(keys is not None and keys.user == obj.data and keys.users == 1
+            mesh_reference = key_reference = False
+            if obj.data.users != 1 or (keys and keys.users != 1):
+                mesh_reference, key_reference = _maintenance_member_references(rig, obj)
+            _require(obj.data.is_editable and not obj.data.library and not obj.data.override_library
+                     and obj.data.users == 1 + mesh_reference, '同步Mesh必须本地可编辑且单用户')
+            _require(keys is not None and keys.user == obj.data and keys.users == 1 + key_reference
                      and keys.animation_data is not None and keys.animation_data.action is None
                      and not keys.animation_data.nla_tracks, 'Key所有权或动画绑定已改变')
             curves = list(keys.animation_data.drivers)

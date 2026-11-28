@@ -27,6 +27,13 @@ Bundled reference resource:
 Host dependencies, used through an existing installation and not vendored:
 - Blender 5.2.1 LTS: bpy/mathutils/NumPy and installed native importers.
   io_scene_fbx is GPL-2.0-or-later; io_scene_gltf2 is Apache-2.0.
+- Independent modular templates use the host's Rigify 0.6.10 public metarig
+  and generation APIs (Blender Foundation, GPL-2.0-or-later). Rigify is not
+  vendored or auto-installed. Its basic human, paw and tail mechanisms are
+  invoked by independently authored configuration and lifecycle code.
+  Source reference: https://github.com/blender/blender-addons/tree/b42d68627734cb18af0e6f41537063984313a284/rigify
+  That mirror is archived; the tested host files determine compatibility.
+  These templates contain no private C94 character asset or copied C94 rig.
 - MMD source/camera file import requires MMD Tools 4.5.14, GPL-3.0-or-later,
   and its OpenCC-python-reimplemented 0.1.7 wheel, Apache License 2.0.
   https://github.com/MMD-Blender/blender_mmd_tools . The GUI does not enable

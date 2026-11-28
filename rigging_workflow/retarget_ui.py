@@ -15,10 +15,10 @@ def _armature(self,obj):return obj.type=='ARMATURE'
 def _options(context):return getattr(context.scene,OPTIONS)
 
 class C94RETARGET_Options(bpy.types.PropertyGroup):
-    source_kind:EnumProperty(name='来源预设',items=(('MIXAMO','FBX / Mixamo','已映射人形FBX或场景Action'),
-        ('CMU','CMU BVH（已验骨架）','显式轴/比例、REST朝向与每动作位移原点')),default='MIXAMO')
+    source_kind:EnumProperty(name='来源预设',items=(('MIXAMO','FBX / Mixamo','已映射人形FBX或场景动作'),
+        ('CMU','CMU BVH（已验骨架）','显式轴/比例、静置姿态朝向与每动作位移原点')),default='MIXAMO')
     source:PointerProperty(name='源动画骨架',type=bpy.types.Object,poll=_armature)
-    target:PointerProperty(name='C94目标角色',type=bpy.types.Object,poll=_armature)
+    target:PointerProperty(name='目标角色',type=bpy.types.Object,poll=_armature)
     candidate:PointerProperty(name='独立候选动作',type=bpy.types.Action)
     mapping_json:StringProperty(name='语义映射（JSON）',default='{}')
     motion:EnumProperty(name='根运动',items=(('PRESERVE','保留移动与转向','按来源运动'),('IN_PLACE','原地，保留转向和跳跃','移除水平轨迹')),default='PRESERVE')
@@ -77,7 +77,7 @@ class C94RETARGET_OT_action(bpy.types.Operator):
                 rigs={m.object for o in context.scene.objects if o.type=='MESH' and o.visible_get() and not o.hide_render
                       for m in o.modifiers if m.type=='ARMATURE' and m.object and m.show_viewport and m.show_render
                       and 'c94_generated_rig_v1' in m.object}
-                if len(rigs)!=1:raise ValueError('生产蒙皮存在多个或没有C94骨架，请明确选择目标')
+                if len(rigs)!=1:raise ValueError('生产蒙皮对应的角色骨架不唯一，请明确选择目标')
                 opts.target=next(iter(rigs));opts.summary='已按可见生产Mesh的Armature引用选择目标'
             elif self.operation=='MAP':
                 proposal=sources.exact_cmu_mapping(opts.source) if opts.source_kind=='CMU' else sources.mapping(opts.source)
@@ -132,14 +132,14 @@ class C94RETARGET_PT_body(bpy.types.Panel):
         layout.prop(opts,'motion')
         if advanced:layout.prop(opts,'preview_step')
         if opts.source_kind=='CMU':
-            layout.label(text='按腿长缩放位移；REST朝向 / 片段起点原点')
+            layout.label(text='按腿长缩放位移；静置姿态朝向 / 片段起点原点')
             layout.label(text='本CMU源无手指；表情、视线未转换')
         else:
             layout.prop(opts,'scale_motion');layout.prop(opts,'include_fingers')
         if advanced:layout.prop(opts,'override_fps')
         if opts.override_fps:layout.prop(opts,'source_fps')
         layout.operator('c94_workflow.retarget_action',text='生成快速预览').operation='PREVIEW_BUILD'
-        layout.operator('c94_workflow.retarget_action',text='生成逐帧独立Action（同步）').operation='CONVERT'
+        layout.operator('c94_workflow.retarget_action',text='生成逐帧独立动作（同步）').operation='CONVERT'
         layout.prop(opts,'candidate')
         from . import retarget_headneck_ui
         retarget_headneck_ui.draw_button(layout,opts.target,opts.candidate)
@@ -154,13 +154,13 @@ class C94RETARGET_PT_body(bpy.types.Panel):
 @persistent
 def _load(*args):
     failures=actions.finish_previews()
-    if failures:print('C94换文件前预览恢复信息',failures)
+    if failures:print('打开工程前的动作预览恢复信息',failures)
     actions._preview.clear()
 
 @persistent
 def _save(*args):
     failures=actions.finish_previews()
-    if failures:print('C94重定向：外部改动已保留，恢复信息见Text',failures)
+    if failures:print('动作重定向已保留外部改动，恢复信息见文本数据块',failures)
 
 @persistent
 def _undo(*args):_save()

@@ -2,7 +2,7 @@
 """Native Weight Paint on an independent proposal, then protected local commit."""
 import bpy,json
 import numpy as np
-from . import skinning_policy as policy, skinning_job, corrective_authoring as sig
+from . import skeleton_gate, skinning_policy as policy, skinning_job, corrective_authoring as sig
 
 _require=skinning_job._require
 _SELECTION={'.select_vert','.select_edge','.select_poly'}
@@ -23,6 +23,7 @@ def _geometry(obj):
 
 class PaintSession:
     def __init__(self,context,target,rig,names,ids,alpha,active_bone):
+        skeleton_gate.require_interactive_paint(rig)
         scope=policy.local_scope(target,rig,names,ids,alpha)
         active_bone=active_bone or scope['editable'][0]
         _require(active_bone in scope['editable'],'活动刷权重骨必须是未锁定的可写组')

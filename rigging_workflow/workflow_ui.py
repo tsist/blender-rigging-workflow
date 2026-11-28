@@ -9,6 +9,7 @@ from bpy.props import BoolProperty, EnumProperty, FloatProperty, IntProperty, Po
 OPTIONS='c94_entry_options_v1'
 TARGETS='c94_entry_targets_ui_v1'
 RESULT='c94_entry_result_ui_v1'
+CANDIDATE='c94_entry_candidate_ui_v1'
 _REGISTERED=[]
 _PROPERTY_OWNED=False
 _SESSION=None
@@ -24,11 +25,21 @@ def _targets(scene):
     return objects
 
 
-def _session(context):
+def _session(context, *, capture=False):
     if _SESSION is None:raise ValueError('先准备本次新角色')
     if _SESSION['scene']!=context.scene:raise ValueError('切回本次角色所属场景')
     if _SESSION.get('aborting'):raise ValueError('正在撤回本次制作，等待后台释放')
+    if capture and _SESSION['plan'] is None:
+        from . import workflow_entry
+        plan=workflow_entry.capture_reviewed(context.scene,_SESSION['candidate_id'])
+        _SESSION.update(plan=plan,source_objects=list(plan._staging),summary=plan.pending)
     return _SESSION
+
+
+def _forget_candidate(session):
+    scene=session['scene']
+    if scene==bpy.context.scene and scene.get(CANDIDATE)==session['candidate_id']:
+        del scene[CANDIDATE]
 
 
 def _redraw():
@@ -44,10 +55,25 @@ def _monitor():
     try:
         if _SESSION.get('aborting'):
             state=_SESSION['plan'].abort();_SESSION['summary']=state
-            if state.get('cleanup_complete'):_SESSION=None;_redraw();return None
+            if state.get('cleanup_complete'):
+                if _SESSION.get('discard'): _forget_candidate(_SESSION)
+                from . import workbench_ui
+                workbench_ui.VOXEL_PROGRESS.observe(_SESSION['scene'], {'status': 'cancelled'})
+                _SESSION=None;_redraw();return None
         else:
             for job in _SESSION['jobs'].values():job.status()
-            _SESSION['summary']=_SESSION['plan'].pending
+            if _SESSION['plan'] is not None:
+                _SESSION['summary']=_SESSION['plan'].pending
+                from . import workbench_ui
+                progress = workbench_ui.VOXEL_PROGRESS
+                rows = _SESSION['summary']
+                active = next((row for row in rows if row.get('status') == 'running'), None)
+                if active:
+                    progress.observe(_SESSION['scene'], {**(active.get('detail') or {}), 'status': 'running'},
+                                     cancel_operator='c94_workflow.abort_character_entry')
+                elif progress.cancel_operator == 'c94_workflow.abort_character_entry':
+                    terminal = 'failed' if any(row.get('status') == 'failed' for row in rows) else 'succeeded'
+                    progress.observe(_SESSION['scene'], {'status': terminal})
     except Exception as exc:
         _SESSION['error']=str(exc)
     _redraw();return .25
@@ -58,7 +84,7 @@ def _start_monitor():
 
 
 class C94ENTRY_Options(bpy.types.PropertyGroup):
-    mode:EnumProperty(name='输入路线',items=[('AUTO','自动识别已有绑定','原资产保留，副本新建C94'),('UNBOUND','无绑定','明确无绑定几何'),('EXISTING','已有绑定重建','保留旧绑定；不兼容旧驱动逐项交接重做')])
+    mode:EnumProperty(name='输入路线',items=[('AUTO','自动识别已有绑定','原资产保留，在副本中新建角色'),('UNBOUND','未绑定','输入尚未绑定的几何'),('EXISTING','已有绑定重建','保留旧绑定；不兼容旧驱动逐项交接重做')])
     index:IntProperty(name='当前部件序号',default=0,min=0)
     proxy:StringProperty(name='体积代理')
     donor:StringProperty(name='已绑定供体')
@@ -82,6 +108,7 @@ class C94ENTRY_OT_Targets(bpy.types.Operator):
             if _SESSION is not None:raise ValueError('先完成或撤回当前角色，再更换输入')
             names=[o.name for o in context.selected_objects if o.type=='MESH']
             if not names:raise ValueError('明确选择本次身体和部件网格')
+            if context.scene.get(CANDIDATE):del context.scene[CANDIDATE]
             context.scene[TARGETS]=json.dumps(names,ensure_ascii=False)
             self.report({'INFO'},'已捕获%d件输入；代理和供体另行选择'%len(names))
             return {'FINISHED'}
@@ -97,22 +124,32 @@ class C94ENTRY_OT_Prepare(bpy.types.Operator):
         global _SESSION
         try:
             if _SESSION is not None:raise ValueError('本次角色尚未结束，先完成或撤回')
-            from . import workflow_entry,generation_ui,accessory_ui
-            options=getattr(context.scene,OPTIONS);gen=getattr(context.scene,generation_ui.OPTIONS)
-            ref=generation_ui.reference(context);base=Path(bpy.path.abspath(gen.template_file))
-            config=generation_ui._configuration(context,ref,base)
-            if config is None:raise ValueError('先准备明确模块配置模板')
-            objects=_targets(context.scene)
-            neutral_world={ob.name:[list(row) for row in ob.matrix_world] for ob in objects} if options.use_current_neutral_world else None
-            plan=workflow_entry.prepare(context.scene,ref,str(base),config,objects,label=gen.label,
-                mode=options.mode,legacy_policy='SNAPSHOT_FRESH_REBIND',chain_record=accessory_ui.reference_record(context.scene,ref,validate=True),neutral_world=neutral_world)
+            from . import workflow_entry,generation_ui,accessory_ui,workbench_ui
             _start_monitor()  # Fail before any character IDs are allocated.
-            result=plan.capture()
-            _SESSION={'plan':plan,'scene':context.scene,'rig':result['rig'],'jobs':{},'summary':plan.pending,'error':None,
+            candidate_id=context.scene.get(CANDIDATE)
+            if candidate_id:
+                result=workflow_entry.inspect_candidate(context.scene,candidate_id)
+            else:
+                options=getattr(context.scene,OPTIONS);gen=getattr(context.scene,generation_ui.OPTIONS)
+                ref=generation_ui.reference(context);base=Path(bpy.path.abspath(gen.template_file))
+                config=generation_ui._configuration(context,ref,base)
+                if config is None:raise ValueError('先准备明确模块配置模板')
+                objects=_targets(context.scene)
+                neutral_world={ob.name:[list(row) for row in ob.matrix_world] for ob in objects} if options.use_current_neutral_world else None
+                before = set(bpy.data.collections)
+                result=workflow_entry.prepare_candidate(context.scene,ref,str(base),config,objects,label=gen.label,
+                    mode=options.mode,legacy_policy='SNAPSHOT_FRESH_REBIND',
+                    chain_record=accessory_ui.reference_record(context.scene,ref,validate=True),
+                    neutral_world=neutral_world)
+                workbench_ui.theme_created_collections(before)
+                candidate_id=result['candidate']['id']
+                context.scene[CANDIDATE]=candidate_id
+            _SESSION={'plan':None,'scene':context.scene,'rig':result['rig'],'candidate_id':candidate_id,
+                      'jobs':{},'summary':[], 'error':None,
                       'source_counts':[len(o.data.vertices) for o in result['sources']],
                       'source_objects':list(result['sources'])}
         except Exception as exc:self.report({'ERROR'},str(exc));traceback.print_exc();return {'CANCELLED'}
-        self.report({'INFO'},'已生成工作副本；逐件蒙皮完成后提交角色。旧动作/驱动需重做项保存在报告中')
+        self.report({'INFO'},'待审骨架已就绪；保存候选并登记同一骨架与精确范围后继续逐件绑定')
         return {'FINISHED'}
 
 
@@ -121,7 +158,7 @@ class C94ENTRY_OT_Volume(bpy.types.Operator):
     bl_label='身体：启动体积扩散'
     def execute(self,context):
         try:
-            s=_session(context);o=getattr(context.scene,OPTIONS)
+            s=_session(context,capture=True);o=getattr(context.scene,OPTIONS)
             proxy=context.scene.objects.get(o.proxy)
             if proxy is None or proxy.type!='MESH':raise ValueError('选择本次明确的闭合体积代理')
             if not o.jobs_directory.strip():raise ValueError('填写明确的本次后台任务目录')
@@ -154,7 +191,7 @@ class C94ENTRY_OT_PlanSurface(bpy.types.Operator):
     def execute(self,context):
         try:
             from . import skinning_plan_ui
-            s=_session(context);o=getattr(context.scene,OPTIONS);plan_options=skinning_plan_ui._setup(context)
+            s=_session(context,capture=True);o=getattr(context.scene,OPTIONS);plan_options=skinning_plan_ui._setup(context)
             source=s['source_objects'][o.index]
             from .generation import RIG_KEY
             label=json.loads(s['rig'][RIG_KEY])['label']
@@ -171,7 +208,7 @@ class C94ENTRY_OT_MultiVolume(bpy.types.Operator):
     def execute(self,context):
         try:
             from . import skinning_plan_ui
-            s=_session(context);o=getattr(context.scene,OPTIONS);plan_options=skinning_plan_ui._setup(context)
+            s=_session(context,capture=True);o=getattr(context.scene,OPTIONS);plan_options=skinning_plan_ui._setup(context)
             if plan_options.source!=s['source_objects'][o.index] or plan_options.rig!=s['rig']:
                 raise ValueError('多域方案不属于本次当前部件，请先准备该部件的多域表面')
             if not o.jobs_directory.strip():raise ValueError('填写明确的本次后台任务目录')
@@ -189,10 +226,14 @@ class C94ENTRY_OT_Finish(bpy.types.Operator):
     def execute(self,context):
         global _SESSION
         try:
-            s=_session(context);result=s['plan'].finish()
+            s=_session(context)
+            if s['plan'] is None:raise ValueError('先验收骨架并完成本次明确部件绑定')
+            result=s['plan'].finish()
         except Exception as exc:self.report({'ERROR'},str(exc));return {'CANCELLED'}
         warnings=[]
-        try:context.scene[RESULT]=json.dumps({'schema':'c94.character-entry-ui-result.v1','rig':result['rig'].name,'objects':[o.name for o in result['objects']],'report':result['report']},ensure_ascii=False,allow_nan=False)
+        try:
+            context.scene[RESULT]=json.dumps({'schema':'c94.character-entry-ui-result.v1','rig':result['rig'].name,'objects':[o.name for o in result['objects']],'report':result['report']},ensure_ascii=False,allow_nan=False)
+            _forget_candidate(s)
         except Exception as exc:warnings.append(str(exc))
         _SESSION=None
         self.report({'WARNING'} if warnings else {'INFO'},'新角色已完成，原资产保留'+('；结果记录提示：'+'；'.join(warnings) if warnings else ''))
@@ -205,7 +246,7 @@ class C94ENTRY_OT_Part(bpy.types.Operator):
     method:EnumProperty(items=[('TRANSFER','读取身体现用权重',''),('RIGID','刚性绑定','')])
     def execute(self,context):
         try:
-            s=_session(context);o=getattr(context.scene,OPTIONS)
+            s=_session(context,capture=True);o=getattr(context.scene,OPTIONS)
             from .generation_ui import OPTIONS as GEN
             name=getattr(context.scene,GEN).label+'_部件_%02d'%o.index
             if self.method=='RIGID':
@@ -231,10 +272,14 @@ class C94ENTRY_OT_Abort(bpy.types.Operator):
         try:
             if _SESSION is None:raise ValueError('没有本次新建会话')
             if _SESSION['scene']!=context.scene:raise ValueError('切回会话所属场景')
-            _SESSION['aborting']=True;result=_SESSION['plan'].abort()
-            if result.get('cleanup_complete'):_SESSION=None
+            _SESSION.update(aborting=True,discard=True)
+            plan=_SESSION['plan']
+            result=plan.abort() if plan is not None else {'cleanup_complete':True}
+            if result.get('cleanup_complete'):
+                _forget_candidate(_SESSION)
+                _SESSION=None
             else:_start_monitor()
-            self.report({'INFO'},'已撤回' if _SESSION is None else '已取消求解；等待后台释放后清理本次副本')
+            self.report({'INFO'},'已撤回绑定会话，保留待审骨架' if _SESSION is None else '已取消求解；等待后台释放后清理本次副本')
             return {'FINISHED'}
         except Exception as exc:self.report({'ERROR'},str(exc));return {'CANCELLED'}
 
@@ -289,6 +334,9 @@ class C94ENTRY_PT_Entry(bpy.types.Panel):
 def _load_pre(*args):
     global _SESSION
     if _SESSION is not None:
+        if _SESSION['plan'] is None:
+            _SESSION=None
+            return
         _SESSION['aborting']=True
         try:
             result=_SESSION['plan'].abort()

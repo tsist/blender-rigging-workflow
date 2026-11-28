@@ -3,7 +3,7 @@
 import json
 from pathlib import Path
 import bpy
-from bpy.props import PointerProperty,StringProperty,IntProperty,FloatProperty,EnumProperty
+from bpy.props import PointerProperty,StringProperty,IntProperty,FloatProperty,EnumProperty,BoolProperty
 from bpy.app.handlers import persistent
 from . import retarget_job as jobs,retarget_job_ui as shared,retarget_contact_job as adapter
 from . import retarget_contact_correction as core,retarget_action as rt
@@ -31,6 +31,18 @@ def _ended_plan(session):
     plan=session.get('contact_plan')
     core.require(plan is None or plan.status not in {'preview','applied'},'先停止预览或撤回已应用候选')
 
+
+def submit_items(context, target, items, root, max_seconds):
+    """Use the existing correction queue and publish a session after enqueue."""
+    job = jobs.enqueue_contact_corrections(target, items, settings={'max_seconds': max_seconds}, jobs_root=str(root))
+    shared._SESSIONS[shared._scene_key(context.scene)] = {
+        'scene': context.scene, 'source': target, 'target': target, 'job': job,
+        'cache': jobs.peek_status(job), 'selected': 0, 'collected': {},
+        'entry': adapter.KIND, 'contact_plan': None,
+    }
+    return job
+
+
 class C94CONTACTJOB_Options(bpy.types.PropertyGroup):
     target:PointerProperty(name='检测报告原目标',type=bpy.types.Object,poll=_rig)
     retained_action:PointerProperty(name='保留的独立修正候选',type=bpy.types.Action)
@@ -39,6 +51,11 @@ class C94CONTACTJOB_Options(bpy.types.PropertyGroup):
     issue_id:StringProperty(name='精确问题ID')
     start:IntProperty(name='修正开始帧',default=3)
     end:IntProperty(name='修正结束帧',default=4)
+    gait_joint:BoolProperty(name='按走跑支撑联合修正', default=False)
+    tangent_release:BoolProperty(name='保留片段水平滑步', default=False)
+    release_start:IntProperty(name='滑步开始帧', default=0)
+    release_end:IntProperty(name='滑步结束帧', default=0)
+    release_blend:IntProperty(name='两端过渡帧', default=5, min=1)
     clearance_m:FloatProperty(name='离地米',default=0.,min=0)
     max_delta_m:FloatProperty(name='最大位移米',default=.05,min=.00001)
     match_tolerance_m:FloatProperty(name='匹配误差米',default=.001,min=.000001)
@@ -64,9 +81,14 @@ class C94CONTACTJOB_OT_run(bpy.types.Operator):
                 item={'kind':adapter.KIND,'detection_report':_document(opts.report_text),'calibration':_document(opts.calibration_text),
                     'issue_id':opts.issue_id,'frames':list(range(opts.start,opts.end+1)),
                     'parameters':{name:getattr(opts,name) for name in adapter.PARAMETERS}}
-                job=jobs.enqueue_contact_corrections(opts.target,[item],settings={'max_seconds':opts.max_seconds},jobs_root=str(root))
-                shared._SESSIONS[shared._scene_key(context.scene)]={'scene':context.scene,'source':opts.target,'target':opts.target,
-                    'job':job,'cache':jobs.peek_status(job),'selected':0,'collected':{},'entry':adapter.KIND,'contact_plan':None}
+                if opts.gait_joint:
+                    rows = [row for row in item['detection_report'].get('issues', ()) if row['id'] == opts.issue_id]
+                    core.require(len(rows) == 1, '联合支撑修正需要精确的问题')
+                    release = {'start': opts.release_start, 'end': opts.release_end,
+                               'blend_frames': opts.release_blend} if opts.tangent_release else None
+                    item['support_window'] = core.gait_support_window(
+                        item['detection_report'], rows[0], item['calibration'], item['frames'], tangent_release=release)
+                submit_items(context, opts.target, [item], root, opts.max_seconds)
                 opts.message='已提交原队列；当前基础Action保持，不批准问题'
             elif self.operation=='REOPEN_SELECTED':
                 core.require(shared.session_for(context.scene) is None,'先结束/释放现有同Scene任务')
@@ -107,6 +129,12 @@ class C94CONTACTJOB_PT_panel(bpy.types.Panel):
         layout.prop(opts,'target');layout.prop(opts,'report_text');layout.prop(opts,'calibration_text')
         layout.label(text='表面需完整sole；骨锚点需显式三点/地面，不签皮肤足底')
         layout.prop(opts,'issue_id');row=layout.row(align=True);row.prop(opts,'start');row.prop(opts,'end')
+        layout.prop(opts,'gait_joint')
+        if opts.gait_joint:
+            layout.prop(opts,'tangent_release')
+            if opts.tangent_release:
+                row=layout.row(align=True);row.prop(opts,'release_start');row.prop(opts,'release_end')
+                layout.prop(opts,'release_blend')
         for field in ('clearance_m','max_delta_m','match_tolerance_m','solve_tolerance_m'):layout.prop(opts,field)
         layout.prop(opts,'jobs_root');layout.prop(opts,'max_seconds')
         session=shared.session_for(context.scene)
@@ -126,13 +154,19 @@ class C94CONTACTJOB_PT_panel(bpy.types.Panel):
             plan=session.get('contact_plan')
             if plan:
                 layout.label(text=f'{plan.issue_id} / {plan.kind} / {plan.status}')
+                window = plan.parameters.get('support_window')
+                if window:
+                    layout.label(text=f"联合修正：第 {window['touchdown_frame']} 帧着地")
+                    if window['tangent_release']:
+                        release = window['tangent_release']
+                        layout.label(text=f"第 {release['start']}–{release['end']} 帧保留滑步")
                 if plan.calibration.get('measurement_mode')=='bone_anchors':
                     layout.label(text='骨锚点模式（非皮肤足底）；只审阅此精确问题')
                     layout.label(text='检测校准：'+plan.calibration['detection_calibration_sha256'])
                 row=layout.row();row.enabled=plan.status=='preview';row.operator('c94.contact_correction_confirm',text='确认应用这个问题').plan_token=plan.token
                 row=layout.row();row.enabled=plan.status=='applied';row.operator(C94CONTACTJOB_OT_run.bl_idname,text='撤回本次应用').operation='WITHDRAW'
             layout.operator(C94CONTACTJOB_OT_run.bl_idname,text='释放任务').operation='RELEASE'
-        else:layout.label(text='当前Scene已有其他后台任务；沿用同一队列')
+        else:layout.label(text='当前场景已有其他后台任务；沿用同一队列')
         layout.label(text=opts.message)
 
 def _timer():

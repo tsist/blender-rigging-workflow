@@ -18,14 +18,18 @@ def _mapping_changed(self,_context):self.acknowledged=False
 
 class C94GENERIC_Options(bpy.types.PropertyGroup):
     target_mapping:StringProperty(name='目标语义 → 实际骨名 JSON',default='{}',update=_mapping_changed)
-    acknowledged:BoolProperty(name='明确回退为骨骼Action（不是控制器动画）',default=False,update=_ack)
+    acknowledged:BoolProperty(name='明确回退为骨骼动作（不是控制器动画）',default=False,update=_ack)
     ack_target:PointerProperty(type=bpy.types.Object)
-    isolate:BoolProperty(name='明确另建原rest派生FK骨架，不绑定原Mesh',default=False)
+    isolate:BoolProperty(name='明确另建原静置姿态派生FK骨架，不绑定原网格',default=False)
     start:FloatProperty(name='源起帧',default=1)
     end:FloatProperty(name='源止帧',default=161)
     output_start:IntProperty(name='目标起帧',default=1)
     message:StringProperty(default='已适配控制器用原入口；未知控制器仅明确骨骼回退')
-    report_text:StringProperty(name='检查报告Text',default='')
+    report_text:StringProperty(name='检查报告文本数据块',default='')
+    contact_mesh:PointerProperty(name='原 FK 蒙皮网格', type=bpy.types.Object,
+                                 poll=lambda _self, obj: obj.type == 'MESH')
+    contact_calibration:PointerProperty(name='脚跟支撑校准', type=bpy.types.Text)
+    contact_candidate:PointerProperty(name='独立 FK 支撑动作', type=bpy.types.Action)
 
 class C94GENERIC_OT_action(bpy.types.Operator):
     bl_idname='c94_workflow.retarget_generic_target'
@@ -34,7 +38,7 @@ class C94GENERIC_OT_action(bpy.types.Operator):
     def execute(self,context):
         opts=getattr(context.scene,OPTIONS);current=getattr(context.scene,body.OPTIONS)
         try:
-            require(self.operation in ('INSPECT','MIXAMO_TARGET_MAP','CONVERT','ISOLATE','PREVIEW','STOP'),'未知通用目标操作')
+            require(self.operation in ('INSPECT','MIXAMO_TARGET_MAP','CONVERT','ISOLATE','PREVIEW','STOP','FK_CONTACT'),'未知通用目标操作')
             require(context.mode in ('OBJECT','POSE'),'请先退出编辑模式')
             target=sources.armature(rt.preview_target(context.scene) if self.operation=='STOP' else current.target)
             if self.operation=='INSPECT':
@@ -71,6 +75,13 @@ class C94GENERIC_OT_action(bpy.types.Operator):
                 detection_ui.complete_from_context(context,source,target,converted)
                 current.candidate=converted['action'];opts.acknowledged=False
                 opts.message='已生成未绑定可编辑骨骼Action；需查看姿态/蒙皮，不代表控制器适配'
+            elif self.operation=='FK_CONTACT':
+                from . import retarget_fk_contact as contact
+                require(opts.contact_mesh is not None and opts.contact_calibration is not None,
+                        '请选择该角色的蒙皮网格和脚跟支撑校准')
+                document = json.loads(opts.contact_calibration.as_string())
+                opts.contact_candidate = contact.build(target, opts.contact_mesh, document)
+                opts.message = f'已保留原 FK 槽中的独立动作 {opts.contact_candidate.name}'
             elif self.operation=='PREVIEW':
                 require(current.candidate and generic.META in current.candidate,'请选择本入口通用目标候选')
                 rt.begin_preview(target,current.candidate);opts.message='同一共核临时预览中；保存前恢复原状态'
@@ -79,29 +90,35 @@ class C94GENERIC_OT_action(bpy.types.Operator):
         except Exception as exc:opts.message=str(exc);self.report({'ERROR'},str(exc));return {'CANCELLED'}
 
 class C94GENERIC_PT_panel(bpy.types.Panel):
-    bl_idname='C94GENERIC_PT_panel';bl_label='未知控制器：骨骼Action回退'
+    bl_idname='C94GENERIC_PT_panel';bl_label='未知控制器：骨骼动作回退'
     bl_space_type='VIEW_3D';bl_region_type='UI';bl_category='动画重定向';bl_parent_id='C94RETARGET_PT_body'
     def draw(self,context):
         layout=self.layout;opts=getattr(context.scene,OPTIONS)
         layout.label(text='控制器已适配：使用原身体入口')
-        layout.label(text='普通FK：明确映射后只输出骨骼Action')
-        layout.label(text='未知控制图：原rig拒绝写入，可另建隔离骨架')
+        layout.label(text='普通FK：明确映射后只输出骨骼动作')
+        layout.label(text='未知控制图：原骨架拒绝写入，可另建隔离骨架')
         row=layout.row(align=True)
         row.operator('c94_workflow.retarget_generic_target',text='检查目标与冲突').operation='INSPECT'
         row.operator('c94_workflow.retarget_generic_target',text='读取Mixamo骨名建议').operation='MIXAMO_TARGET_MAP'
         layout.prop(opts,'target_mapping')
         row=layout.row(align=True);row.prop(opts,'start');row.prop(opts,'end');layout.prop(opts,'output_start')
         layout.prop(opts,'acknowledged')
-        layout.operator('c94_workflow.retarget_generic_target',text='生成未绑定骨骼Action').operation='CONVERT'
+        layout.operator('c94_workflow.retarget_generic_target',text='生成未绑定骨骼动作').operation='CONVERT'
         row=layout.row(align=True)
         row.operator('c94_workflow.retarget_generic_target',text='临时预览候选').operation='PREVIEW'
         row.operator('c94_workflow.retarget_generic_target',text='停止并恢复').operation='STOP'
         box=layout.box();box.prop(opts,'isolate')
         box.operator('c94_workflow.retarget_generic_target',text='另建隔离FK骨架').operation='ISOLATE'
-        box.label(text='原rest派生；不是新C94，不绑定原角色Mesh')
+        box.label(text='沿用原静置姿态，生成单独的试动骨架')
         layout.label(text=opts.message[:72],icon='INFO')
         if opts.report_text:layout.prop(opts,'report_text')
-        layout.label(text='身体FK；长动作走通用后台，手指/表情/接触修正未接入')
+        contact = layout.box()
+        contact.label(text='原 FK 脚跟支撑')
+        contact.prop(opts,'contact_mesh')
+        contact.prop(opts,'contact_calibration')
+        contact.operator('c94_workflow.retarget_generic_target',text='生成独立支撑动作').operation='FK_CONTACT'
+        if opts.contact_candidate:
+            contact.label(text=opts.contact_candidate.name)
 
 def register():
     global _OWNED

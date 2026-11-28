@@ -79,27 +79,80 @@ def _inherit(context,kind):
     opts.time_summary=json.dumps({k:metadata.get(k) for k in ('source_fps','source_range','target_fps','output_range','motion')},ensure_ascii=False)
     opts.message='已读取身份/时基；不会猜Mesh、地面、足底索引或帧秒对齐'
 
+
+def _configure_correction(scene, target, issue_id, report, calibration, frames):
+    from . import retarget_contact_job_ui as correction_ui
+    _require(hasattr(scene, correction_ui.OPTIONS), '先注册足底修正面板')
+    dest = getattr(scene, correction_ui.OPTIONS)
+    report_text = bpy.data.texts.new('C94_精确足底检测_' + issue_id[:12])
+    report_text.write(json.dumps(report, ensure_ascii=False, indent=2))
+    calibration_text = bpy.data.texts.new('C94_精确足底修正校准_' + issue_id[:12])
+    calibration_text.write(json.dumps(calibration, ensure_ascii=False, indent=2))
+    dest.target, dest.report_text, dest.calibration_text = target, report_text, calibration_text
+    dest.issue_id, dest.start, dest.end = issue_id, min(frames), max(frames)
+    dest.gait_joint, dest.tangent_release = False, False
+    return dest
+
+
+def _enqueue_gait(context, opts, document):
+    from . import retarget_contact_correction as correction
+    from . import retarget_contact_job as adapter, retarget_contact_job_ui as correction_ui
+    _require(opts.motion_usage == 'GAIT', '自动修正只用于明确选择的普通走跑')
+    _require(document['status'] == 'analyzed' and document.get('measurement_mode') == 'bone_anchors',
+             '自动联合修正需完成骨锚点检测')
+    _require(opts.jobs_root.strip(), '请指定后台工作目录')
+    root = Path(bpy.path.abspath(opts.jobs_root)) / 'gait-corrections'
+    _require(root.is_absolute() and root.parent.is_dir(), '请选择既有绝对后台目录')
+    items = []
+    for issue in document['detection_report']['issues']:
+        if issue['kind'] != 'target_penetration' or not issue['defect'] or issue['region'] != 'heel':
+            continue
+        report, calibration, frames = core.correction_inputs(opts.target, document, issue['id'])
+        try:
+            window = correction.gait_support_window(report, issue, calibration, frames)
+        except correction.CorrectionError:
+            continue
+        items.append({'kind': adapter.KIND, 'detection_report': report, 'calibration': calibration,
+                      'issue_id': issue['id'], 'frames': frames, 'support_window': window,
+                      'parameters': {'clearance_m': .0004}})
+    _require(items, '当前报告无满足联合支撑条件的脚跟问题；可逐问题审阅')
+    root.mkdir(exist_ok=True)
+    correction_ui.submit_items(context, opts.target, items, root, opts.max_seconds)
+    item = items[0]
+    dest = _configure_correction(context.scene, opts.target, item['issue_id'],
+                                 item['detection_report'], item['calibration'], item['frames'])
+    dest.gait_joint, dest.clearance_m, dest.jobs_root = True, .0004, str(root)
+    dest.max_seconds = opts.max_seconds
+    opts.message = f'已自动提交 {len(items)} 条联合支撑候选，请在修正面板收集和审看'
+    dest.message = opts.message
+
+
 class C94CONTACTDETECT_Options(bpy.types.PropertyGroup):
     source:PointerProperty(name='明确源骨架',type=bpy.types.Object,poll=_armature)
-    source_action:PointerProperty(name='源Action',type=bpy.types.Action)
-    source_slot:StringProperty(name='源Slot标识')
+    source_action:PointerProperty(name='源动作',type=bpy.types.Action)
+    source_slot:StringProperty(name='源动作槽标识')
     target:PointerProperty(name='候选目标骨架',type=bpy.types.Object,poll=_armature)
-    target_action:PointerProperty(name='目标基础候选Action',type=bpy.types.Action)
-    target_slot:StringProperty(name='目标Slot标识')
+    target_action:PointerProperty(name='目标基础候选动作',type=bpy.types.Action)
+    target_slot:StringProperty(name='目标动作槽标识')
     calibration_text:PointerProperty(name='双方表面或三骨锚点/地面/帧秒校准JSON',type=bpy.types.Text)
-    report_text:PointerProperty(name='只读报告Text',type=bpy.types.Text)
+    report_text:PointerProperty(name='只读报告文本数据块',type=bpy.types.Text)
     jobs_root:StringProperty(name='后台工作目录',subtype='DIR_PATH')
     max_seconds:FloatProperty(name='预算秒',default=600,min=1,max=86400)
     selected:IntProperty(name='报告结果序号',default=0,min=0)
     selected_issue:IntProperty(name='问题序号',default=0,min=0)
     issue_id:StringProperty(name='精确问题ID')
+    motion_usage:EnumProperty(name='片段用途', items=[
+        ('REVIEW', '只读审看', '生成足底报告'),
+        ('GAIT', '普通走跑', '收集报告时自动生成满足支撑条件的联合修正候选'),
+        ('STYLIZED', '舞蹈或有意滑步', '保留表现，逐问题审阅'),
+    ], default='REVIEW')
     time_summary:StringProperty(name='候选时基说明')
     message:StringProperty(name='状态',default='尚未检测：需明确测量模式、双方校准、地面与帧秒对齐')
 
 class C94CONTACTDETECT_OT_run(bpy.types.Operator):
     bl_idname='c94_workflow.contact_detection_background'
     bl_label='基础候选足底只读检测'
-    operation:EnumProperty(items=[(s,s,'') for s in ('USE_BODY','USE_MMD','ENQUEUE','REFRESH','CANCEL','COLLECT','READ_AUTOMATIC','VIEW_REPORT','SELECT_ISSUE','TRANSFER','RELEASE')])
+    operation:EnumProperty(items=[(s,s,'') for s in ('USE_BODY','USE_MMD','ENQUEUE','REFRESH','CANCEL','COLLECT','READ_AUTOMATIC','VIEW_REPORT','SELECT_ISSUE','TRANSFER','RELEASE','AUTO_GAIT')])
     def execute(self,context):
         opts=_opts(context)
         try:
@@ -139,19 +192,21 @@ class C94CONTACTDETECT_OT_run(bpy.types.Operator):
                     values=list(session['collected'].values());_require(values and opts.selected<len(values),'没有所选成功报告')
                     opts.report_text=values[opts.selected];session['report_cache']=_report(opts.report_text)
                     opts.message='已收集JSON报告Text；Action数量/绑定保持，未批准问题'
+                    if opts.motion_usage == 'GAIT' and session['cache'].get('terminal'):
+                        try:
+                            _enqueue_gait(context, opts, session['report_cache'])
+                        except (ValueError, RuntimeError, OSError) as exc:
+                            opts.message = f'报告已保留；自动候选待审：{exc}'
+                elif self.operation=='AUTO_GAIT':
+                    _require(session['cache'].get('terminal'),'检测仍在运行，请等待完成')
+                    _enqueue_gait(context, opts, _report(opts.report_text))
                 elif self.operation=='SELECT_ISSUE':
                     document=_report(opts.report_text);rows=(document.get('detection_report') or {}).get('issues',[])
                     _require(opts.selected_issue<len(rows),'问题序号超出范围');opts.issue_id=rows[opts.selected_issue]['id']
                 elif self.operation=='TRANSFER':
-                    from . import retarget_contact_job_ui as correction_ui
-                    _require(hasattr(context.scene,correction_ui.OPTIONS),'先注册既有足底修正专项界面')
                     _require(session['cache'].get('terminal'),'检测仍在运行，不能转交/释放检测会话')
                     document=_report(opts.report_text);report,calibration,frames=core.correction_inputs(opts.target,document,opts.issue_id)
-                    dest=getattr(context.scene,correction_ui.OPTIONS)
-                    report_text=bpy.data.texts.new('C94_精确足底检测_'+opts.issue_id[:12]);report_text.write(json.dumps(report,ensure_ascii=False,indent=2))
-                    calibration_text=bpy.data.texts.new('C94_精确足底修正校准_'+opts.issue_id[:12]);calibration_text.write(json.dumps(calibration,ensure_ascii=False,indent=2))
-                    dest.target=opts.target;dest.report_text=report_text;dest.calibration_text=calibration_text;dest.issue_id=opts.issue_id
-                    dest.start=min(frames);dest.end=max(frames)
+                    _configure_correction(context.scene, opts.target, opts.issue_id, report, calibration, frames)
                     shared._SESSIONS.pop(shared._scene_key(context.scene),None)
                     opts.message='精确报告/问题/校准已传原修正面板；尚未生成修正或批准，可另行后台生成'
                 else:
@@ -172,7 +227,7 @@ class C94CONTACTDETECT_PT_panel(bpy.types.Panel):
         layout.label(text='表面模式需完整sole；骨锚点模式需每侧heel/ball/toe三点')
         layout.label(text='骨锚点是明确骨局部标记，不是皮肤足底；地面须显式校准')
         layout.label(text='手部/身体接触未分析；本入口不写修正曲线')
-        layout.prop(opts,'jobs_root');layout.prop(opts,'max_seconds')
+        layout.prop(opts,'motion_usage');layout.prop(opts,'jobs_root');layout.prop(opts,'max_seconds')
         session=shared.session_for(context.scene)
         if session is None:layout.operator(C94CONTACTDETECT_OT_run.bl_idname,text='后台只读检测').operation='ENQUEUE'
         elif session.get('entry')==core.KIND:
@@ -191,6 +246,8 @@ class C94CONTACTDETECT_PT_panel(bpy.types.Panel):
                     layout.label(text=f'{i}: {prefix}{row["kind"]}/{row["side"]}/{row["region"]} {row["id"]}')
                 layout.prop(opts,'selected_issue');layout.operator(C94CONTACTDETECT_OT_run.bl_idname,text='读取精确问题ID').operation='SELECT_ISSUE'
                 layout.prop(opts,'issue_id');layout.operator(C94CONTACTDETECT_OT_run.bl_idname,text='传给原逐问题修正入口').operation='TRANSFER'
+                if opts.motion_usage == 'GAIT' and cache.get('terminal'):
+                    layout.operator(C94CONTACTDETECT_OT_run.bl_idname,text='生成普通走跑支撑候选').operation='AUTO_GAIT'
             layout.operator(C94CONTACTDETECT_OT_run.bl_idname,text='释放检测/查看任务').operation='RELEASE'
         else:layout.label(text='当前任务请在对应专项面板管理')
         layout.operator(C94CONTACTDETECT_OT_run.bl_idname,text='读取候选内自动报告').operation='READ_AUTOMATIC'

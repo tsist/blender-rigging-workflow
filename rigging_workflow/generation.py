@@ -11,6 +11,7 @@ from pathlib import Path
 import bpy
 import numpy as np
 from mathutils import Matrix, Vector
+from .skeleton_neutral_53 import verify_neutral
 
 RIG_KEY = 'c94_generated_rig_v1'
 MECHANISM = '绑定机制-'
@@ -243,46 +244,6 @@ def validate_input(scene, reference):
                    for m in state['markers']):
                 raise ValueError('定位标记有未同步修改，请先更新参考骨再生成')
     return positioning.reference_signature(reference)
-
-
-def verify_neutral(rig, reference, names, reference_mapping=None):
-    """Check real Armature deformation, including B-Bone segment evaluation."""
-    evaluated = _update(rig)
-    reference_mapping = reference_mapping or {name: name for name in names}
-    head_tail = {name: max(
-        (evaluated.pose.bones[name].head - reference.data.bones[reference_mapping[name]].head_local).length,
-        (evaluated.pose.bones[name].tail - reference.data.bones[reference_mapping[name]].tail_local).length,
-    ) for name in names}
-    vertices, labels = [], []
-    for name in names:
-        bone = rig.data.bones[name]
-        radius = min(0.002, bone.length * 0.1)
-        for t in (0.05, 0.25, 0.5, 0.75, 0.95):
-            for x, z in ((0, 0), (radius, 0), (0, radius)):
-                vertices.append(bone.matrix_local @ Vector((x, bone.length * t, z)))
-                labels.append(name)
-    mesh = bpy.data.meshes.new('C94_生成校验临时网格')
-    obj = bpy.data.objects.new('C94_生成校验临时对象', mesh)
-    bpy.context.scene.collection.objects.link(obj)
-    try:
-        mesh.from_pydata(vertices, [], [])
-        obj.matrix_world = rig.matrix_world.copy()
-        for index, name in enumerate(names):
-            obj.vertex_groups.new(name=name).add(list(range(index * 15, (index + 1) * 15)), 1.0, 'REPLACE')
-        modifier = obj.modifiers.new('原生形变校验', 'ARMATURE')
-        modifier.object = rig
-        bpy.context.view_layer.update()
-        result = obj.evaluated_get(bpy.context.evaluated_depsgraph_get())
-        sample = {}
-        for index, vertex in enumerate(result.data.vertices):
-            name = labels[index]
-            sample[name] = max(sample.get(name, 0.0), (vertex.co - vertices[index]).length)
-    finally:
-        bpy.data.objects.remove(obj, do_unlink=True)
-        bpy.data.meshes.remove(mesh)
-    return {'head_tail_max': max(head_tail.values(), default=0),
-            'sample_max': max(sample.values(), default=0), 'sample_count': len(vertices),
-            'sample_worst': sorted(sample.items(), key=lambda item: item[1], reverse=True)[:10]}
 
 
 def _link_bbone_channels(rig, names, renamed):
@@ -652,3 +613,22 @@ def generate(scene, reference, template_file, label='Myona', *, configuration=No
                 owned_ids.extend(imported_ids)
         module_configuration._cleanup(before_ids, old_active, old_selected, owned_ids=imported_ids)
         raise
+
+
+def install_shoulder_girdle(scene, reference, generated, landmarks, *, owned_ids=None):
+    """Complete an optional generation component before review identity freezes."""
+    from . import neutral_binding, shoulder_girdle
+
+    rig, report = generated['rig'], generated['report']
+    metadata = json.loads(rig[RIG_KEY])
+    deforms = metadata['deforms']
+    scale = float(scene.unit_settings.scale_length)
+    neutral_binding.check_current(rig, metadata, deforms, scale)
+    assembly = shoulder_girdle.install(rig, landmarks, owned_ids=owned_ids)
+    verification = verify_neutral(rig, reference, deforms, metadata['reference_mapping'])
+    # The original generation verifies source mechanisms while creating outputs.
+    # Assembly records its own all-bone matrix comparison and final output probes.
+    metadata[neutral_binding.KEY] = neutral_binding.capture_verified(
+        rig, metadata, verification, report['mechanism_change_max'], scale)
+    rig[RIG_KEY] = json.dumps(metadata, ensure_ascii=False, allow_nan=False)
+    report.update(shoulder_girdle=assembly, assembled_neutral=verification)

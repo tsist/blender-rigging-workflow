@@ -1296,24 +1296,24 @@ class C94CAMERA_Options(bpy.types.PropertyGroup):
     progress_read_error: StringProperty(name="Progress 读取错误", default="")
     cancel_requested: BoolProperty(name="已请求取消", default=False)
     request_path: StringProperty(name="Request", default="")
-    job_target_fps: FloatProperty(name="构建目标 fps", default=0.0, min=0.0)
-    profile_path: StringProperty(name="Profile", default="")
-    library_path: StringProperty(name="Camera library", default="")
+    job_target_fps: FloatProperty(name="构建目标帧率", default=0.0, min=0.0)
+    profile_path: StringProperty(name="来源配置", default="")
+    library_path: StringProperty(name="相机素材库", default="")
     descriptor_path: StringProperty(name="Descriptor", default="")
-    profile_sha256: StringProperty(name="Profile SHA", default="")
-    library_sha256: StringProperty(name="Library SHA", default="")
+    profile_sha256: StringProperty(name="来源配置 SHA", default="")
+    library_sha256: StringProperty(name="素材库 SHA", default="")
     migration_output_path: StringProperty(
-        name="新迁移Profile JSON", subtype="FILE_PATH", default="")
+        name="新迁移来源配置 JSON", subtype="FILE_PATH", default="")
     migration_expected_library_sha256: StringProperty(
-        name="旧Library SHA256", default="")
+        name="旧素材库 SHA256", default="")
     migration_expected_profile_sha256: StringProperty(
-        name="旧Profile文件 SHA256", default="")
+        name="旧来源配置文件 SHA256", default="")
     profile_collected: BoolProperty(name="成功结果已收集", default=False)
     build_summary: StringProperty(name="构建摘要", default="")
-    appended_camera: StringProperty(name="已 Append 相机", default="")
+    appended_camera: StringProperty(name="已追加相机", default="")
     previous_active_camera: StringProperty(name="此前活动镜头", default="")
     restore_owner_camera: StringProperty(name="Restore 归属相机", default="")
-    restore_owner_scene: StringProperty(name="Restore 归属 Scene", default="")
+    restore_owner_scene: StringProperty(name="镜头恢复所属场景", default="")
     backend_status: StringProperty(name="后端检查", default="")
     vmd_status: StringProperty(name="VMD 检查", default="")
 
@@ -1361,8 +1361,8 @@ class C94CAMERA_OT_build(bpy.types.Operator):
     bl_idname = "c94_camera.build_native_library"
     bl_label = "后台构建原生相机库"
     bl_description = (
-        "按当前 Scene fps 通过公共 CLI extension.run 构建原生相机库；"
-        "不修改 Scene，不注册 MMD Tools"
+        "按当前场景帧率构建原生相机素材库。"
+        "可在核验后选择是否追加到场景。"
     )
     bl_options = {"REGISTER"}
 
@@ -1405,8 +1405,8 @@ class C94CAMERA_OT_collect(bpy.types.Operator):
     bl_idname = "c94_camera.collect_result"
     bl_label = "收集成功结果/查看错误"
     bl_description = (
-        "显式一次性收集：读取冻结 job 的 receipt、hash 和精确 camera profile；"
-        "周期 timer 不做这些"
+        "核对后台回执与文件校验值，"
+        "收集本次任务生成的相机来源配置。"
     )
     bl_options = {"REGISTER"}
 
@@ -1506,8 +1506,8 @@ class C94CAMERA_OT_migrate_legacy(bpy.types.Operator):
     bl_idname = "c94_camera.migrate_legacy_profile"
     bl_label = "高级：验证旧相机库并生成新配置副本"
     bl_description = (
-        "显式只读验证旧library/旧profile，生成不存在的新JSON sidecar；"
-        "旧文件绝不写回，不自动Append或改活动镜头"
+        "读取旧素材库与来源配置，另存新 JSON 配置。"
+        "旧文件保持只读，活动镜头可在随后手动选择。"
     )
     bl_options = {"REGISTER"}
     confirm: BoolProperty(name="确认只读验证并写入新侧车（旧文件保留）", default=False)
@@ -1519,13 +1519,13 @@ class C94CAMERA_OT_migrate_legacy(bpy.types.Operator):
     def draw(self, context):
         layout = self.layout
         opts = _opts(context)
-        layout.label(text="旧 profile：" + (opts.profile_path or "<未设置>"))
-        layout.label(text="旧 library：" + (opts.library_path or "<未设置>"))
-        layout.label(text="旧 profile SHA256：" + (opts.migration_expected_profile_sha256 or "<未设置>"))
-        layout.label(text="旧 library SHA256：" + (opts.migration_expected_library_sha256 or "<未设置>"))
+        layout.label(text="旧来源配置：" + (opts.profile_path or "<未设置>"))
+        layout.label(text="旧素材库：" + (opts.library_path or "<未设置>"))
+        layout.label(text="旧来源配置 SHA256：" + (opts.migration_expected_profile_sha256 or "<未设置>"))
+        layout.label(text="旧素材库 SHA256：" + (opts.migration_expected_library_sha256 or "<未设置>"))
         layout.label(text="新输出 JSON：" + (opts.migration_output_path or "<未设置>"))
-        layout.label(text="旧 library/profile 只读保留；不会写回旧文件", icon="INFO")
-        layout.label(text="只生成新sidecar，不自动Append、不激活镜头", icon="INFO")
+        layout.label(text="旧素材库与来源配置只读保留；不会写回旧文件", icon="INFO")
+        layout.label(text="另存迁移后的来源配置", icon="INFO")
         layout.prop(self, "confirm")
 
     def execute(self, context):
@@ -1585,8 +1585,8 @@ class C94CAMERA_OT_migrate_legacy(bpy.types.Operator):
 
 class C94CAMERA_OT_append(bpy.types.Operator):
     bl_idname = "c94_camera.append_profile"
-    bl_label = "Append 精确 profile 到当前 Scene"
-    bl_description = "使用后台成功 job 的精确 profile；不修改 Scene fps，不自动替换活动镜头"
+    bl_label = "按来源配置追加相机到当前场景"
+    bl_description = "使用后台核验通过的来源配置"
     bl_options = {"REGISTER"}
 
     def execute(self, context):
@@ -1607,7 +1607,7 @@ class C94CAMERA_OT_append(bpy.types.Operator):
 class C94CAMERA_OT_set_active(bpy.types.Operator):
     bl_idname = "c94_camera.set_active_camera"
     bl_label = "设为活动镜头"
-    bl_description = "显式把已 Append 的新相机设为 Scene.camera；不会随构建/Append 自动执行"
+    bl_description = "把已追加的相机设为活动镜头"
     bl_options = {"REGISTER"}
 
     def execute(self, context):
@@ -1629,8 +1629,7 @@ class C94CAMERA_OT_restore_active(bpy.types.Operator):
     bl_idname = "c94_camera.restore_active_camera"
     bl_label = "恢复此前活动镜头"
     bl_description = (
-        "仅当当前活动镜头仍是已 Append 相机且 restore 归属记录有效时，"
-        "显式恢复此前镜头；否则拒绝并保留当前用户选择"
+        "当前活动镜头仍为已追加相机，且恢复记录有效时，可切回此前镜头。"
     )
     bl_options = {"REGISTER"}
 
@@ -1668,7 +1667,7 @@ class C94CAMERA_PT_panel(bpy.types.Panel):
             fps = _scene_fps(scene)
         except Exception:
             fps = 0.0
-        layout.label(text=f"当前 Scene fps：{fps:g}（构建时使用，不修改）")
+        layout.label(text=f'当前场景帧率：{fps:g}（构建时使用，不修改）')
 
         box = layout.box()
         box.label(text="输入（显式路径）", icon="FILE")
@@ -1694,7 +1693,7 @@ class C94CAMERA_PT_panel(bpy.types.Panel):
         box.label(text="后台构建（public CLI extension.run）", icon="PLAY")
         build = box.row()
         build.enabled = not bool(opts.job_id)
-        build.operator("c94_camera.build_native_library", text="按当前 Scene fps 构建")
+        build.operator("c94_camera.build_native_library", text="按当前场景帧率构建")
         status = opts.status or "IDLE"
         box.label(
             text=f"{_STATUS_LABEL.get(status, status)} · {opts.status_message[:72]}",
@@ -1749,28 +1748,28 @@ class C94CAMERA_PT_panel(bpy.types.Panel):
         release.operator("c94_camera.release_job", text="释放界面任务")
 
         box = layout.box()
-        box.label(text="精确 profile → 当前 Scene", icon="ACTION")
+        box.label(text="按来源配置追加到场景", icon="ACTION")
         if opts.profile_collected and opts.profile_path:
-            box.label(text=f"Profile：{Path(opts.profile_path).name}")
+            box.label(text=f'来源配置：{Path(opts.profile_path).name}')
             box.label(text=f"SHA：{opts.profile_sha256[:24]}…")
             append = box.row()
             append.enabled = (
                 not (opts.job_id and not opts.job_terminal)
                 and bool(opts.library_path)
             )
-            append.operator("c94_camera.append_profile", text="Append 原生相机与 Object/Data Action")
+            append.operator("c94_camera.append_profile", text="追加原生相机及其动作")
         elif opts.job_state == "succeeded" and opts.job_terminal:
             box.label(text="成功终态；请先点“收集成功结果”", icon="INFO")
         else:
-            box.label(text="构建成功后在此提供精确 profile Append", icon="INFO")
+            box.label(text="构建成功后，可在此追加原生相机", icon="INFO")
         if opts.build_summary:
             box.label(text=opts.build_summary[:96], icon="INFO")
 
         box = layout.box()
-        box.label(text="高级：旧弱profile只读验证 → 新JSON sidecar", icon="FILE")
-        box.label(text="旧library/旧profile保留且绝不写回；不自动Append/激活镜头", icon="INFO")
-        box.prop(opts, "profile_path", text="旧 Profile JSON")
-        box.prop(opts, "library_path", text="旧 Camera library")
+        box.label(text="高级 · 迁移旧版来源配置", icon="FILE")
+        box.label(text="旧素材库与来源配置保持只读", icon="INFO")
+        box.prop(opts, "profile_path", text="旧来源配置 JSON")
+        box.prop(opts, "library_path", text="旧相机素材库")
         box.prop(opts, "migration_output_path")
         box.prop(opts, "migration_expected_library_sha256")
         box.prop(opts, "migration_expected_profile_sha256")
@@ -1789,9 +1788,9 @@ class C94CAMERA_PT_panel(bpy.types.Panel):
         box = layout.box()
         box.label(text="活动镜头（单独显式操作）", icon="CAMERA_DATA")
         current = scene.camera.name if scene.camera else "None"
-        box.label(text=f"当前 Scene.camera：{current}")
+        box.label(text=f'活动镜头：{current}')
         if opts.appended_camera:
-            box.label(text=f"已 Append：{opts.appended_camera}")
+            box.label(text=f'已追加：{opts.appended_camera}')
             restore_available = _restore_available(opts, scene)
             row = box.row(align=True)
             row.operator("c94_camera.set_active_camera", text="设为活动镜头")
@@ -1802,26 +1801,26 @@ class C94CAMERA_PT_panel(bpy.types.Panel):
                 if current != opts.appended_camera:
                     box.label(
                         text=(
-                            f"restore 已禁用：当前 {current} 不是 Append 相机；"
-                            "保留用户选择"
+                            f"当前活动镜头 {current} 为另选的相机。"
+                            "此前镜头仍保留在场景中。"
                         ),
                         icon="INFO",
                     )
                 else:
                     box.label(
-                        text="restore 已禁用：归属记录无效或此前镜头不可用",
+                        text="恢复记录无效，或此前镜头已不可用",
                         icon="INFO",
                     )
             box.label(
-                text="Append/构建不自动改；set-active/restore 才是显式改镜头",
+                text="可在这里设为活动镜头或恢复此前镜头",
                 icon="INFO",
             )
         else:
-            box.label(text="尚未 Append 新相机", icon="INFO")
+            box.label(text="尚未追加新相机", icon="INFO")
 
         layout.label(text="成功结果先收集，再追加到当前场景", icon="INFO")
         layout.label(
-            text="构建/Append 保持旧 Scene.camera；set-active/restore 为显式改镜头",
+            text="追加相机后可在这里切换活动镜头",
             icon="INFO",
         )
 

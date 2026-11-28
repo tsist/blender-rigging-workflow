@@ -11,6 +11,8 @@ from bpy.app.handlers import persistent
 from bpy.props import (BoolProperty, EnumProperty, FloatProperty, IntProperty,
                        PointerProperty, StringProperty)
 
+from . import secondary_dynamics, surface_dynamic
+
 OPTIONS = 'c94_surface_dynamic_options_v1'
 _REGISTERED = []
 _PROPERTY_OWNED = False
@@ -348,7 +350,7 @@ class C94SURFACE_PT_Dynamic(bpy.types.Panel):
         _button(row, '安装明确动态组', 'INSTALL')
         _button(row, '读取/刷新', 'READ')
         rig = options.rig
-        settings = rig.pose.bones.get('骨架设置') if rig and rig.type == 'ARMATURE' else None
+        settings, _ = secondary_dynamics.panel_controls(rig, surface_dynamic.STATE_KEY, options.group_id.strip())
         if (settings is not None and options.loaded_rig == rig and
                 options.loaded_group == options.group_id.strip()):
             native = layout.box()

@@ -13,7 +13,7 @@ from . import retarget_contact_anchors as anchors
 
 KIND='CONTACT_CORRECTION'
 PARAMETERS={'clearance_m','max_delta_m','match_tolerance_m','solve_tolerance_m'}
-FIELDS={'kind','detection_report','issue_id','frames','calibration','parameters','action_name','label'}
+FIELDS={'kind','detection_report','issue_id','frames','calibration','parameters','action_name','label','support_window'}
 
 def graph_fingerprint(target):
     from . import retarget_job as jobs
@@ -58,6 +58,13 @@ def resolve_items(target,raw_items,job_id):
             '必须明确连续整数frames且至少两帧')
         core.require(not(set(doc.get('parameters',{}))-PARAMETERS),'包含未知修正参数')
         core.require(all(type(v) in (int,float) and math.isfinite(v) for v in doc.get('parameters',{}).values()),'修正参数需有限数值')
+        window = doc.get('support_window')
+        if window is not None:
+            rows = [row for row in doc['detection_report'].get('issues', ()) if row['id'] == doc['issue_id']]
+            core.require(len(rows) == 1, '联合支撑修正需要精确的问题')
+            checked = core.gait_support_window(doc['detection_report'], rows[0], calibration, frames,
+                                               tangent_release=window.get('tangent_release') if isinstance(window, dict) else None)
+            core.require(window == checked, '联合支撑窗口与已检测着地及旁路设置不同')
         reference=doc['detection_report'].get('target',{}).get('reference',{})
         if measurement_mode==anchors.MODE:
             object_inputs=calibration.get('detection_object_inputs')
@@ -84,7 +91,7 @@ def convert_item(target,item,*,progress,cancelled):
     try:
         plan=core.prepare_issue(target,data['detection_report'],issue_id=data['issue_id'],
             frames=data['frames'],calibration=data['calibration'],graph_fingerprint=graph_fingerprint,
-            cancelled=cancelled,**data.get('parameters',{}))
+            cancelled=cancelled,support_window=data.get('support_window'),**data.get('parameters',{}))
         plan.action.name=item['output_action_name']
         progress('CONTACT_CORRECTION',len(data['frames']),len(data['frames']))
         return {'action':plan.action,'slot':plan.slot,'report':plan.report}

@@ -76,7 +76,7 @@ def append_atlas(context, filepath, collection_name, reference_name, atlas_name)
         reference, atlas = collection.all_objects.get(reference_name), collection.all_objects.get(atlas_name)
         _object(scene, reference, 'ARMATURE')
         _object(scene, atlas, 'MESH')
-        _need(bool(reference.get('c94_reference_kind')), '指定骨架不是完整C94参考层，不能用旧目标骨架替代')
+        _need(bool(reference.get('c94_reference_kind')), '请选择图谱中的完整参考骨架')
         _need(not atlas.modifiers and not atlas.data.shape_keys and not atlas.parent
               and not atlas.animation_data and not atlas.data.animation_data and not atlas.constraints,
               '图谱表面须为中立原始网格，无修改器、Key、父级、约束或动画')
@@ -210,7 +210,7 @@ def _rig_poll(_self, obj):
 
 class C94SETUP_Options(bpy.types.PropertyGroup):
     atlas_file: StringProperty(name='私有定位图谱库',
-        description='选择你本机的C94定位图谱.blend；不是只有骨架的生成模板库，原文件不会改写')
+        description='选择本机含参考骨架和中立表面的定位图谱（.blend）')
     collection_name: StringProperty(name='图谱集合', default='C94定位图谱')
     reference_name: StringProperty(name='库内完整参考', default='爱音-完整未拟合参考')
     atlas_name: StringProperty(name='库内中立表面', default='C94-中立表面')

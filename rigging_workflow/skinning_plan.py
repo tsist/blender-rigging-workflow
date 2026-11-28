@@ -17,9 +17,10 @@ import uuid
 import bpy
 import numpy as np
 
-from . import corrective_authoring as signatures, skinning, skinning_job
+from . import corrective_authoring as signatures, skeleton_gate, skinning, skinning_job
 from .volume.contract import normalize
-from .volume.geometry import validate_closed
+from .volume.geometry import _vertex_components, validate_closed
+from .volume.solver import _estimate, _grid_layout
 from .skinning_fields import surface_projection
 
 _TOKEN = 'c94_volume_surface_id_v1'
@@ -30,9 +31,10 @@ _SCHEMA = 'c94_volume_surface_schema_v1'
 _require = skinning_job._require
 
 
-def _evaluated_arrays(source):
-    obj = source.evaluated_get(bpy.context.evaluated_depsgraph_get())
-    mesh = obj.to_mesh()
+def _evaluated_arrays(source, *, marker=None):
+    depsgraph = bpy.context.evaluated_depsgraph_get()
+    obj = source.evaluated_get(depsgraph)
+    mesh = obj.to_mesh(preserve_all_data_layers=marker is not None, depsgraph=depsgraph)
     try:
         points = np.empty((len(mesh.vertices), 3), dtype=np.float64)
         mesh.vertices.foreach_get('co', points.ravel())
@@ -40,9 +42,67 @@ def _evaluated_arrays(source):
         points = points @ matrix[:3, :3].T + matrix[:3, 3]
         mesh.calc_loop_triangles()
         triangles = np.asarray([tuple(t.vertices) for t in mesh.loop_triangles], dtype=np.int64)
-        return points, triangles
+        if marker is None:
+            return points, triangles
+        attribute = mesh.attributes.get(marker)
+        _require(attribute is not None and attribute.domain == 'POINT' and attribute.data_type == 'FLOAT',
+                 '原生细分未保留源壳标记，请检查采样表面来源')
+        owners = np.empty(len(points), dtype=np.float32)
+        attribute.data.foreach_get('value', owners)
+        return points, triangles, owners
     finally:
         obj.to_mesh_clear()
+
+
+def _source_shell_labels(source, surface_points, surface_triangles):
+    pairs = np.empty(len(source.data.edges) * 2, dtype=np.int32)
+    source.data.edges.foreach_get('vertices', pairs)
+    roots = _vertex_components(len(source.data.vertices), pairs.reshape(-1, 2))
+    components, by_vertex = np.unique(roots, return_inverse=True)
+    raw = by_vertex.astype(np.int32)
+    raw_count = len(components)
+    _require(raw_count < 2**24, 'RAW壳体数量超出原生精确浮点标记范围')
+    if not any(modifier.show_viewport for modifier in source.modifiers):
+        points, triangles = skinning.mesh_arrays(source)
+        _require(np.array_equal(points, surface_points) and np.array_equal(triangles, surface_triangles),
+                 'RAW采样面拓扑不匹配，无法证明壳体来源')
+        return raw, raw.copy()
+
+    # Passing a constant marker through actual Subsurf proves shell ownership
+    # without relying on the index order of subdivided vertices or proximity.
+    data = source.data.copy()
+    probe = None
+    try:
+        probe = source.copy()
+        probe.data = data
+        name = '__rw_source_shell_' + uuid.uuid4().hex[:12]
+        marker = data.attributes.new(name, 'FLOAT', 'POINT')
+        marker.data.foreach_set('value', raw.astype(np.float32))
+        bpy.context.scene.collection.objects.link(probe)
+        bpy.context.view_layer.update()
+        points, triangles, values = _evaluated_arrays(probe, marker=name)
+        _require(np.array_equal(points, surface_points) and np.array_equal(triangles, surface_triangles),
+                 '带壳体标记的细分探针与已审核采样面不一致')
+        rounded = np.rint(values)
+        _require(np.isfinite(values).all() and np.max(np.abs(values - rounded), initial=0) < 1e-4
+                 and (rounded >= 0).all() and (rounded < raw_count).all(),
+                 '细分在不同壳间混合了源标记，无法安全回传权重')
+        evaluated = rounded.astype(np.int32)
+        _require(np.all(evaluated[triangles] == evaluated[triangles[:, :1]]), '采样面三角跨越RAW壳体')
+        return raw, evaluated
+    finally:
+        if probe is not None:
+            bpy.data.objects.remove(probe, do_unlink=True)
+        if data.users == 0:
+            bpy.data.meshes.remove(data)
+
+
+def _shell_fingerprint(raw, surface):
+    digest = hashlib.sha256()
+    for values in (raw, surface):
+        digest.update(len(values).to_bytes(8, 'little'))
+        digest.update(np.ascontiguousarray(values, dtype='<i4').tobytes())
+    return digest.hexdigest()
 
 
 def prepare_surface(source, *, name):
@@ -98,6 +158,22 @@ def validate_surface(source, surface):
     _require(consumers == [surface], '采样表面Mesh已被其它对象共享；不能写入或使用其范围')
 
 
+def scope_identity(source, surface):
+    """Bind reviewed geometry and masks without persisting a live capture token."""
+    validate_surface(source, surface)
+    points, triangles = skinning.mesh_arrays(surface)
+    raw_shells, surface_shells = _source_shell_labels(source, points, triangles)
+    return {
+        'object': surface.name,
+        'mesh': surface.data.name,
+        'vertices': len(surface.data.vertices),
+        'geometry_sha256': signatures._mesh_signature(surface.data),
+        'world': signatures._plain(surface.matrix_world),
+        'transfer_rule': 'same_raw_shell_v1',
+        'source_shells_sha256': _shell_fingerprint(raw_shells, surface_shells),
+    }
+
+
 def _ids(value, count):
     raw = np.asarray(value)
     _require(raw.ndim == 1 and raw.dtype.kind in 'iu' and raw.dtype.kind != 'b', '刚性范围需要明确整数顶点ID')
@@ -142,6 +218,7 @@ def _collect(source, rig, surface, domains, rigid, distance):
     _require(np.array_equal(points, actual_points) and np.array_equal(triangles, actual_triangles),
              '采样表面已不对应当前源的真实求值顶点/三角顺序，请重新捕获并指定范围')
     raw_points, _ = skinning.mesh_arrays(source)
+    raw_shells, surface_shells = _source_shell_labels(source, points, triangles)
     total = np.zeros(len(points), dtype=np.float64)
     memberships = np.zeros(len(points), dtype=np.int32)
     records, clean_rigid = [], []
@@ -169,12 +246,26 @@ def _collect(source, rig, surface, domains, rigid, distance):
         for bone in bones:
             for key in ('head', 'tail'):
                 bone[key] = (np.asarray(bone[key]) * scale).tolist()
-        normalize([{'id': 'proxy', 'vertices': vertices * scale, 'triangles': tris}], bones, settings)
-        closed = validate_closed(vertices * scale, tris)
+        mesh_rows, _bones, config, _partitions = normalize(
+            [{'id': 'proxy', 'vertices': vertices * scale, 'triangles': tris}], bones, settings)
+        mesh = mesh_rows[0]
+        cell_size, grid_shape = _grid_layout(mesh['vertices'], config)
+        grid_cells = math.prod(grid_shape)
+        _require(grid_cells <= config['max_cells'],
+                 f'{row["name"]} 需要 {grid_cells:,} 个网格单元，超过 {config["max_cells"]:,} 的上限')
+        retained_bytes = (mesh['vertices'].nbytes + mesh['triangles'].nbytes
+                          + len(ids) * (3 * 8 + len(bones) * 4))
+        resource_bytes = _estimate(grid_cells, len(vertices), len(tris), len(bones),
+                                   retained_bytes, config['neighbor_count'], len(ids))
+        _require(resource_bytes <= config['max_memory_mb'] * 1048576,
+                 f'{row["name"]} 的求解内存保守估计 {resource_bytes / 1048576:.1f} MiB 超出明确上限')
+        closed = validate_closed(mesh['vertices'], mesh['triangles'])
         records.append({'name': row['name'], 'proxy': proxy, 'bone_names': list(row['bone_names']),
             'mask_attribute': row['mask_attribute'], 'settings': settings, 'bones': bones,
             'vertices': vertices * scale, 'triangles': tris, 'source_ids': ids,
-            'blend': blend[ids].astype(np.float64), 'closed': closed})
+            'blend': blend[ids].astype(np.float64), 'closed': closed,
+            'resource_preflight': {'cell_size': cell_size, 'grid_shape': list(grid_shape),
+                                   'grid_cells': grid_cells, 'estimated_bytes': resource_bytes}})
     covered = total > 0
     error = float(np.max(abs(total[covered] - 1), initial=0))
     _require(covered.any() and error <= 1e-5, '正范围内的全部域过渡权重之和须为1，不能隐式修正重叠')
@@ -198,7 +289,7 @@ def _collect(source, rig, surface, domains, rigid, distance):
     volume_ids = np.flatnonzero(~rigid_used)
     _require(len(volume_ids), '本入口需要非空体积目标；全部刚性部件另行配置')
     projection_ids, barycentric, projection = surface_projection(raw_points[volume_ids] * scale, points * scale,
-        triangles[valid_triangles], max_distance=distance)
+        triangles[valid_triangles], max_distance=distance, components=(raw_shells[volume_ids], surface_shells))
     for row in records:
         blend = np.zeros(len(points), dtype=np.float64)
         blend[row['source_ids']] = row['blend']
@@ -214,17 +305,20 @@ def _collect(source, rig, surface, domains, rigid, distance):
         'overlap_surface_vertices': int((memberships > 1).sum()), 'blend_sum_max_error': error,
         'transfer_surface_triangles': len(valid_triangles), 'transfer_distance_meters': float(distance),
         'raw_transfer_preflight': projection,
+        'source_shells_sha256': _shell_fingerprint(raw_shells, surface_shells),
         'domains': [{'name': row['name'], 'proxy': row['proxy'].name, 'bone_names': row['bone_names'],
             'application_points': len(row['source_ids']), 'mask_attribute': row['mask_attribute'],
             'participating_triangles': row['participating_triangles'],
             'transfer_target_vertices': row['transfer_target_vertices'],
-            'settings': row['settings'], 'closed_surface': row['closed']} for row in records],
+            'settings': row['settings'], 'closed_surface': row['closed'],
+            'resource_preflight': row['resource_preflight']} for row in records],
         'rigid': [{'name': row['name'], 'bone_name': row['bone_name'], 'vertices': len(row['vertex_indices'])} for row in clean_rigid],
         'coordinates': 'meters', 'scene_scale_length': scale,
         'scope': 'new independent binding; explicit volume domains and rigid scopes; visual review pending'}
     return {'summary': summary, 'domains': records, 'rigid': clean_rigid, 'scale': scale,
         'surface_vertices': points * scale, 'surface_vertices_world': points, 'surface_triangles': triangles,
         'valid_triangles': valid_triangles, 'raw_vertices': raw_points * scale,
+        'raw_shells': raw_shells, 'surface_shells': surface_shells,
         'volume_ids': volume_ids, 'bone_names': names}
 
 
@@ -234,6 +328,7 @@ def check(source, rig, surface, domains, rigid, *, transfer_distance_meters=.01)
 
 class MultiJob(skinning_job.Job):
     def __init__(self, source, rig, surface, data, root):
+        self._gate_token = skeleton_gate.require_pass(rig, operation='skinning_plan.MultiJob')
         self.source, self.rig, self.proxy = source, rig, surface
         self.session_scene = bpy.context.scene
         self._source_mesh, self._rig_data, self._proxy_mesh = source.data, rig.data, surface.data
@@ -244,6 +339,7 @@ class MultiJob(skinning_job.Job):
         self._before = signatures._state(source, rig)
         self._proxy_before = skinning_job._proxy_state(surface)
         self._domain_refs = [(row['proxy'], row['proxy'].data, skinning_job._proxy_state(row['proxy'])) for row in data['domains']]
+        self._sample_proxy, self._input_guard = False, None
         self._cancelled, self._applied, self._terminal = False, False, None
         self._progress, self._offset, self._pending = {'phase': 'starting'}, 0, b''
         self.directory = root / uuid.uuid4().hex
@@ -252,15 +348,20 @@ class MultiJob(skinning_job.Job):
         (runtime/'volume').mkdir(parents=True)
         (runtime/'__init__.py').write_text('', encoding='utf8')
         package = Path(__file__).resolve().parent
-        files = [runtime/'__init__.py']
-        for path in [*(package/'volume').glob('*.py'), package/'skinning_fields.py']:
-            destination = runtime/'volume'/path.name if path.parent.name == 'volume' else runtime/path.name
-            shutil.copyfile(path, destination)
-            files.append(destination)
+        fields_copy = runtime/'skinning_fields.py'
+        shutil.copyfile(package/'skinning_fields.py', fields_copy)
+        files = [runtime/'__init__.py', fields_copy, *skinning_job._copy_volume_runtime(package, runtime)]
+        collection_copy = runtime/'skeleton_collection.py'
+        shutil.copyfile(package/'skeleton_collection.py', collection_copy)
+        files.append(collection_copy)
+        channel_copy = runtime/'worker_channel.py'
+        shutil.copyfile(package/'worker_channel.py', channel_copy)
+        files.append(channel_copy)
         worker = self.directory/'worker.py'
         shutil.copyfile(package/'skinning_plan_worker.py', worker)
         files.append(worker)
-        arrays = {key: data[key] for key in ('surface_vertices', 'surface_triangles', 'valid_triangles', 'raw_vertices', 'volume_ids')}
+        arrays = {key: data[key] for key in ('surface_vertices', 'surface_triangles', 'valid_triangles',
+                                            'raw_vertices', 'raw_shells', 'surface_shells', 'volume_ids')}
         rows = []
         for index, row in enumerate(data['domains']):
             prefix = 'd' + str(index)
@@ -277,15 +378,16 @@ class MultiJob(skinning_job.Job):
         manifest = {'schema': 'c94.multi-domain-job.v1', 'summary': self.summary,
             'bone_names': self.bone_names, 'domains': rows, 'rigid': rigid_rows,
             'files': [{'relative_path': str(p.relative_to(self.directory)), 'sha256': hashlib.sha256(p.read_bytes()).hexdigest()} for p in files]}
+        manifest['quality_gate'] = skeleton_gate.worker_proof(rig, self._gate_token, manifest)
         (self.directory/'input.json').write_text(json.dumps(manifest, ensure_ascii=False, allow_nan=False, indent=2), encoding='utf8')
         self._input_hash = hashlib.sha256((self.directory/'input.json').read_bytes()).hexdigest()
         (self.directory/'source-state.json').write_text(json.dumps({'state': self._before,
             'surface_state': self._proxy_before, 'summary': self.summary}, ensure_ascii=False, indent=2), encoding='utf8')
         self._check_inputs()
         with (self.directory/'worker.log').open('wb') as log:
-            self._process = subprocess.Popen([bpy.app.binary_path, '--background', '--factory-startup',
+            self._process = skeleton_gate.spawn_worker(rig, self._gate_token, manifest, [bpy.app.binary_path, '--background', '--factory-startup',
                 '--disable-autoexec', '--offline-mode', '--threads', '2', '--python-exit-code', '1',
-                '--python', str(worker), '--', str(self.directory)], stdin=subprocess.DEVNULL,
+                '--python', str(worker), '--', str(self.directory)],
                 stdout=log, stderr=subprocess.STDOUT, shell=False,
                 creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
         self._deadline = time.monotonic()+sum(float(row['settings'].get('max_seconds', 60)) for row in data['domains'])+60
@@ -308,6 +410,7 @@ class MultiJob(skinning_job.Job):
 
 
 def start(source, rig, surface, domains, rigid, *, jobs_directory, transfer_distance_meters=.01):
+    skeleton_gate.require_pass(rig, operation='skinning_plan.start')
     root = Path(jobs_directory).expanduser()
     _require(root.is_absolute(), '后台任务目录必须为明确绝对路径')
     root.mkdir(parents=True, exist_ok=True)

@@ -10,7 +10,7 @@ import math
 import re
 import bpy
 import numpy as np
-from . import skinning, skinning_job, corrective_authoring as sig, pose_switching
+from . import skeleton_gate, skinning, skinning_job, corrective_authoring as sig, pose_switching
 
 _require = skinning_job._require
 
@@ -26,7 +26,8 @@ def _object(obj, kind):
 
 
 def _rig(rig, names):
-    _object(rig, 'ARMATURE'); data = pose_switching._metadata(rig)
+    from . import rig_identity
+    _object(rig, 'ARMATURE'); data = rig_identity.read(rig)
     _require(isinstance(names, list) and names and len(set(names)) == len(names)
              and all(isinstance(n, str) and n in data['deforms'] for n in names),
              '明确指定当前生成角色的最终形变输出骨，不能使用控制/机制骨')
@@ -34,6 +35,14 @@ def _rig(rig, names):
     scale = float(bpy.context.scene.unit_settings.scale_length)
     _require(math.isfinite(scale) and scale > 0 and rig.data.pose_position == 'POSE', '需要姿态显示及有效米制比例')
     from . import neutral_binding
+    if data.get('schema') == 'rigging.native-skeleton.v1':
+        from . import native_skeleton
+        native_skeleton.check_current(rig, data, names, scale)
+        return scale
+    if data.get('schema') == 'rigging.modular.generated.v1':
+        from . import modular_neutral
+        modular_neutral.check_current(rig, data, names, scale)
+        return scale
     if neutral_binding.KEY in data:
         neutral_binding.check_current(rig, data, names, scale)
         return scale
@@ -143,7 +152,8 @@ def _field(donor, rig, names, region):
         triangles = triangles[selected[triangles].all(axis=1)]
     _require(len(triangles), '供体明确范围没有完整三角，不能转移')
     if names is None:
-        available = set(pose_switching._metadata(rig)['deforms'])
+        from . import rig_identity
+        available = set(rig_identity.read(rig)['deforms'])
         names = [g.name for g in donor.vertex_groups if g.name in available]
     scale=_rig(rig,names)
     indices = {g.index:i for i,n in enumerate(names) if (g:=donor.vertex_groups.get(n)) is not None}
@@ -164,7 +174,11 @@ def _field(donor, rig, names, region):
 
 
 class PreparedWeights:
-    def __init__(self, target, rig, names, weights, report, *, donor=None, local_ids=None, alpha=None):
+    def __init__(self, target, rig, names, weights, report, *, donor=None, local_ids=None, alpha=None,
+                 write_scope_sha256=None):
+        self._gate_token = skeleton_gate.require_pass(
+            rig, operation='skinning_policy.PreparedWeights', write_scope_sha256=write_scope_sha256)
+        self._prepare_scope_sha256 = write_scope_sha256
         self.target,self.rig,self.donor=target,rig,donor
         self._scene=bpy.context.scene;self._mesh=target.data;self._rig_data=rig.data
         self._before=_state(target,rig);self._donor_before=_state(donor,rig) if donor else None
@@ -174,7 +188,13 @@ class PreparedWeights:
         self._alpha=np.ones(len(target.data.vertices),dtype=float) if alpha is None else np.asarray(alpha,dtype=float).copy()
         self.report=report;self._done=False;self._preview=None
 
+    def _check_permission(self, scope_sha256):
+        permit = skeleton_gate.require_pass(
+            self.rig, operation='skinning_policy.PreparedWeights', write_scope_sha256=scope_sha256)
+        _require(permit is self._gate_token, '准备后运行许可已更换，不能提交旧计划')
+
     def _check(self):
+        self._check_permission(self._prepare_scope_sha256)
         _object(self.target,'MESH');_object(self.rig,'ARMATURE')
         if self.donor:_object(self.donor,'MESH')
         _require(not self._done and bpy.context.scene==self._scene and self.target.data==self._mesh
@@ -186,9 +206,9 @@ class PreparedWeights:
 
     def cancel(self): self._done=True
 
-    def preview(self, *, name):
+    def preview(self, *, name, write_scope_sha256=None):
         self._check()
-        obj=create_scope_preview(self.target,self._alpha,name=name)
+        obj=create_scope_preview(self.target,self._alpha,name=name,rig=self.rig,write_scope_sha256=write_scope_sha256)
         try:
             self._check();self._preview=obj
             return obj
@@ -198,8 +218,12 @@ class PreparedWeights:
             if mesh.users==0:bpy.data.meshes.remove(mesh)
             raise
 
-    def apply(self, *, name):
+    def apply(self, *, name, write_scope_sha256=None):
         self._check();_require(isinstance(name,str) and name.strip() and name not in bpy.data.objects,'候选名称已使用或为空')
+        if self._prepare_scope_sha256 is not None:
+            _require(write_scope_sha256 is not None and write_scope_sha256 != self._prepare_scope_sha256,
+                     '原生准备回执不能用于应用，须登记独立准确的应用范围')
+            self._check_permission(write_scope_sha256)
         before_points=skinning_job._points(self.target);candidate=None;mesh=None
         try:
             if self._ids is None:
@@ -234,8 +258,14 @@ class PreparedWeights:
             raise
 
 
-def create_scope_preview(target, full_alpha, *, name):
+def create_scope_preview(target, full_alpha, *, name, rig=None, write_scope_sha256=None):
     """Independent display only; no weight proposal or submission authority."""
+    if rig is None:
+        armatures=[m.object for m in getattr(target,'modifiers',()) if m.type=='ARMATURE' and m.object] if target is not None else []
+        if len(armatures)!=1:
+            raise skeleton_gate.GateError('骨架质量门：范围预览需要明确rig；target须有唯一Armature修改器')
+        rig=armatures[0]
+    skeleton_gate.require_pass(rig, operation='skinning_policy.create_scope_preview', write_scope_sha256=write_scope_sha256)
     _object(target,'MESH')
     blend=np.asarray(full_alpha,dtype=float)
     _require(blend.shape==(len(target.data.vertices),) and np.isfinite(blend).all()
@@ -276,6 +306,7 @@ def _verify_local(source, candidate, names, ids, values, *, check_locks=True):
 
 
 def prepare_rigid(target,rig,assignments):
+    skeleton_gate.require_pass(rig,operation='skinning_policy.prepare_rigid')
     _new_target(target)
     _require(isinstance(assignments,list) and assignments and all(isinstance(row,dict)
              and set(row)=={'bone_name','vertex_indices'} and isinstance(row['bone_name'],str) for row in assignments),
@@ -291,8 +322,10 @@ def prepare_rigid(target,rig,assignments):
 
 
 def prepare_transfer(target,rig,donor,*,max_distance_meters,bone_names=None,donor_vertex_indices=None,
-                     local_vertex_indices=None,alpha=None,editable_bone_names=None):
+                     local_vertex_indices=None,alpha=None,editable_bone_names=None,write_scope_sha256=None):
     local=local_vertex_indices is not None
+    _require(write_scope_sha256 is None or local, '准确范围的转移入口只接明确的局部顶点计划')
+    skeleton_gate.require_pass(rig, operation='skinning_policy.prepare_transfer', write_scope_sha256=write_scope_sha256)
     if local:_bound(target,rig)
     else:_new_target(target)
     _require(target!=donor,'目标和供体必须是不同对象，不能把自身未修场当新提案')
@@ -313,12 +346,19 @@ def prepare_transfer(target,rig,donor,*,max_distance_meters,bone_names=None,dono
         'transfer':transfer,'max_distance_meters':max_distance_meters,'vertices':len(ids),'source_unchanged':True}
     if local:
         report['method']='local_applied_field_redistribution'
-        return _local_field_plan(target,rig,ids,alpha,editable_bone_names,weights,names,report,donor=donor)
+        return _local_field_plan(target,rig,ids,alpha,editable_bone_names,weights,names,report,donor=donor,
+                                 write_scope_sha256=write_scope_sha256)
     return PreparedWeights(target,rig,names,weights,report,donor=donor)
 
 
-def local_scope(target,rig,editable_bone_names,vertex_indices,alpha):
+PRESERVE_MASS = 'preserve_mass'
+SELECTED_DIRECT = 'selected_direct'
+SELECTED_APPLY_OPERATION = 'local_skinning_job.apply_selected'
+
+
+def local_scope(target,rig,editable_bone_names,vertex_indices,alpha,*,write_mode=PRESERVE_MASS):
     """Validate a local write scope without creating any weight proposal."""
+    _require(write_mode in (PRESERVE_MASS, SELECTED_DIRECT), '局部权重写入模式无效')
     _bound(target,rig)
     _require(isinstance(editable_bone_names,list) and editable_bone_names,'明确指定局部可写最终骨组')
     scale=_rig(rig,editable_bone_names)
@@ -336,13 +376,19 @@ def local_scope(target,rig,editable_bone_names,vertex_indices,alpha):
     for j,n in enumerate(editable):
         group=target.vertex_groups[n]
         for row,i in enumerate(ids):old[row,j]=next((v.weight for v in target.data.vertices[int(i)].groups if v.group==group.index),0.)
-    mass=old.sum(axis=1);active=(blend>0)&(mass>0)
-    _require(active.any(),'明确写域内没有可分配的原可写组权重质量；不能从锁组或其它组取值')
+    mass=old.sum(axis=1)
+    active=blend>0
+    if write_mode==PRESERVE_MASS:
+        active=active&(mass>0)
+        _require(active.any(),'明确写域内没有可分配的原可写组权重质量；不能从锁组或其它组取值')
     preview=np.zeros(len(target.data.vertices));preview[ids]=np.where(active,blend,0)
     summary={'editable_bones':editable,'locked_bones_preserved':locked,'transition_vertices':int((active&(blend<1)).sum()),
         'requested_vertices':int((blend>0).sum()),'write_vertices':int(active.sum()),
         'zero_editable_mass_vertices':int(((blend>0)&(mass==0)).sum()),
         'writable_mass':'original editable sum per vertex; no other-group normalization'}
+    if write_mode==SELECTED_DIRECT:
+        summary.update(write_mode=write_mode,
+                       writable_mass='blend selected solution values directly; no other-group normalization')
     keys=target.data.shape_keys
     if keys and keys.animation_data and keys.animation_data.drivers:
         summary['retained_key_drivers']=len(keys.animation_data.drivers)
@@ -351,28 +397,41 @@ def local_scope(target,rig,editable_bone_names,vertex_indices,alpha):
             'active':active,'preview_alpha':preview,'summary':summary,'scale':scale}
 
 
-def _local_field_plan(target,rig,ids,alpha,editable_bone_names,weights,names,report,donor=None):
-    scope=local_scope(target,rig,editable_bone_names,ids,alpha)
+def _local_field_plan(target,rig,ids,alpha,editable_bone_names,weights,names,report,donor=None,*,
+                      write_mode=PRESERVE_MASS,write_scope_sha256=None):
+    scope=local_scope(target,rig,editable_bone_names,ids,alpha,write_mode=write_mode)
     _require(set(scope['editable'])<=set(names),
              '可写目标骨组缺少明确供体列，不能静默清零；请明确完整提案骨列')
     proposal=np.asarray(weights,dtype=float)[:,[names.index(n) for n in scope['editable']]]
-    total=proposal.sum(axis=1);active=scope['active'];mass=scope['mass']
-    _require((total[active]>0).all(),'可写原权重质量有正值但提案在这些骨组无覆盖，不能兜底')
-    wanted=scope['old'].copy();wanted[active]=proposal[active]*(mass[active]/total[active])[:,None]
+    active=scope['active']
+    if write_mode==SELECTED_DIRECT:
+        wanted=proposal
+    else:
+        total=proposal.sum(axis=1);mass=scope['mass']
+        _require((total[active]>0).all(),'可写原权重质量有正值但提案在这些骨组无覆盖，不能兜底')
+        wanted=scope['old'].copy();wanted[active]=proposal[active]*(mass[active]/total[active])[:,None]
     blend=scope['alpha'][:,None]
     output=((1-blend)*scope['old']+blend*wanted).astype(np.float32)
     report.update(scope['summary'])
     return PreparedWeights(target,rig,scope['editable'],output[active],report,donor=donor,
-                           local_ids=scope['ids'][active],alpha=scope['preview_alpha'])
+                           local_ids=scope['ids'][active],alpha=scope['preview_alpha'],write_scope_sha256=write_scope_sha256)
 
 
-def prepare_local_field(target,rig,weights,bone_names,vertex_indices,alpha,editable_bone_names,*,method,details=None):
+def prepare_local_field(target,rig,weights,bone_names,vertex_indices,alpha,editable_bone_names,*,method,details=None,
+                        write_mode=PRESERVE_MASS):
     """Validated numeric proposal shared by direct volume and native painting."""
+    permit=skeleton_gate.require_pass(rig,operation='skinning_policy.prepare_local_field')
     _rig(rig,bone_names)
     ids=_ids(vertex_indices,len(target.data.vertices));values=np.asarray(weights,dtype=float)
     _require(values.shape==(len(ids),len(bone_names)) and np.isfinite(values).all() and (values>=0).all(),
              '局部提案矩阵形状/有限性/非负校验失败')
     _require(method in {'local_volume_diffusion','native_weight_paint'},'局部提案方法无效')
+    if write_mode==SELECTED_DIRECT:
+        _require(skeleton_gate._active_write.get()==(permit,SELECTED_APPLY_OPERATION),
+                 '选骨局部重算需要正在采用的精确写入许可')
+        _require(method=='local_volume_diffusion' and len(bone_names)>=2 and (values<=1).all(),
+                 '选骨局部重算只接受有上下文骨的0–1体积权重提案')
     report={'schema':'c94.weight-policy.v1','method':method,'target':target.name,'rig':rig.name,
             'vertices':len(ids),'source_unchanged':True,'proposal':details or {}}
-    return _local_field_plan(target,rig,ids,alpha,editable_bone_names,values,list(bone_names),report)
+    return _local_field_plan(target,rig,ids,alpha,editable_bone_names,values,list(bone_names),report,
+                             write_mode=write_mode)

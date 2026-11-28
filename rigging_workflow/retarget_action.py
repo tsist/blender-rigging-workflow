@@ -121,12 +121,16 @@ def restore_binding(rig,b):
 def snapshot(target,*,target_policy=None):
     from . import retarget_dynamic
     if target_policy is not None:
-        from . import retarget_generic_target
-        retarget_generic_target.validate(target,target_policy)
+        from .retarget_target_policy import implementation
+        policy_impl=implementation(target_policy)
+        policy_impl.validate(target,target_policy)
+    else:policy_impl=None
     s=bpy.context.scene
     return {'scene':s,'view_layer':bpy.context.view_layer,'binding':binding(target),'pose':{p.name:pose._channels(p) for p in target.pose.bones},
             'modes':{k:target.pose.bones['骨架设置'][k] for k in c94.MODES} if target_policy is None else {},
             'target_policy':target_policy,
+            'target_properties':policy_impl.snapshot_properties(target,target_policy)
+                if policy_impl and hasattr(policy_impl,'snapshot_properties') else {},
             'dynamic':retarget_dynamic.capture(target),
             'frame':s.frame_current,'subframe':s.frame_subframe,'range':(s.frame_start,s.frame_end)}
 
@@ -147,6 +151,9 @@ def restore(target,state,*,set_scene_time=True):
                 if tuple(getattr(pb,field))!=values[field]: setattr(pb,field,values[field])
             pb.rotation_mode=values['rotation_mode']
         for k,v in state['modes'].items(): target.pose.bones['骨架设置'][k]=v
+        if state.get('target_properties'):
+            from .retarget_target_policy import implementation
+            implementation(state['target_policy']).restore_properties(target,state['target_properties'])
         if 'dynamic' in state:
             from . import retarget_dynamic
             retarget_dynamic.restore(target,state['dynamic'])
@@ -154,8 +161,8 @@ def restore(target,state,*,set_scene_time=True):
 
 def _channels(target,names,*,target_policy=None):
     if target_policy is not None:
-        from . import retarget_generic_target
-        return retarget_generic_target.channels(target,target_policy)
+        from .retarget_target_policy import implementation
+        return implementation(target_policy).channels(target,target_policy)
     values={}
     for name in names:
         pb=target.pose.bones[name]
@@ -215,39 +222,47 @@ def convert_resolved(source,target,*,mapped,clip,start=None,end=None,output_star
         # Object animation is sampled at an explicit source start, rather than
         # making calibration depend on the unrelated current production frame.
         scene.frame_set(math.floor(start),subframe=start-math.floor(start))
-        if adapter_factory is None:
-            if target_policy is None:
-                adapter=c94.Adapter(source,target,mapped['bones'],motion=motion,scale_motion=scale_motion,include_fingers=include_fingers)
+        from . import control_layer
+        with control_layer.native_retarget_inputs(target) as (projection,owned_drivers):
+            if adapter_factory is None:
+                if target_policy is None:
+                    adapter=c94.Adapter(source,target,mapped['bones'],motion=motion,scale_motion=scale_motion,include_fingers=include_fingers)
+                else:
+                    from .retarget_target_policy import implementation
+                    adapter=implementation(target_policy).Adapter(source,target,mapped,target_policy,motion=motion)
+                adapter_record=None
             else:
-                from . import retarget_generic_target
-                adapter=retarget_generic_target.Adapter(source,target,mapped,target_policy,motion=motion)
-            adapter_record=None
-        else:
-            prepared=adapter_factory(source,target,mapped)
-            source_api.require(isinstance(prepared,(tuple,list)) and len(prepared)==2,
-                               '适配器工厂必须返回(adapter, record)')
-            adapter,adapter_record=prepared
-        paths=_channels(target,adapter.names,target_policy=target_policy)
-        drivers=target.animation_data.drivers
-        source_api.require(not any((f.data_path,f.array_index) in paths for f in drivers),'目标控制写域由driver占用，需要适配')
-        samples=[]
-        for i,frame in enumerate(frames):
-            if cancelled and cancelled(): raise InterruptedError('已取消，原动作和输入恢复')
-            sf=start+(frame-output_start)*clip['fps']/fps
-            scene.frame_set(math.floor(sf),subframe=sf-math.floor(sf))
-            er=source.evaluated_get(bpy.context.evaluated_depsgraph_get())
-            samples.append({semantic:er.matrix_world@er.pose.bones[name].matrix for semantic,name in mapped['bones'].items()})
-            if progress: progress('SOURCE',i+1,len(frames))
-        curves={key:[] for key in paths};diagnostics=[]
-        for i,(frame,sample) in enumerate(zip(frames,samples)):
-            if cancelled and cancelled(): raise InterruptedError('已取消，原动作和输入恢复')
-            scene.frame_set(math.floor(frame),subframe=frame-math.floor(frame))
-            errors=adapter.solve(sample)
-            for row in errors:
-                row['frame']=frame
-            diagnostics.extend(errors)
-            for key,value in _channels(target,adapter.names,target_policy=target_policy).items(): curves[key].append((frame,value))
-            if progress: progress('TARGET',i+1,len(frames))
+                prepared=adapter_factory(source,target,mapped)
+                source_api.require(isinstance(prepared,(tuple,list)) and len(prepared)==2,
+                                   '适配器工厂必须返回(adapter, record)')
+                adapter,adapter_record=prepared
+            native_paths=_channels(target,adapter.names,target_policy=target_policy)
+            destination={(path,index):(projection.get(path,path),index) for path,index in native_paths}
+            source_api.require(len(set(destination.values()))==len(destination),'统一控件动作通道在目标上重叠')
+            all_driver_keys={(fc.data_path,fc.array_index) for fc in target.animation_data.drivers}
+            native_conflicts=set(native_paths)&(all_driver_keys-owned_drivers)
+            projected_conflicts=set(destination.values())&all_driver_keys
+            source_api.require(not (native_conflicts or projected_conflicts),'目标控制写域由非桥接driver占用，需要适配')
+            samples=[]
+            for i,frame in enumerate(frames):
+                if cancelled and cancelled(): raise InterruptedError('已取消，原动作和输入恢复')
+                sf=start+(frame-output_start)*clip['fps']/fps
+                scene.frame_set(math.floor(sf),subframe=sf-math.floor(sf))
+                er=source.evaluated_get(bpy.context.evaluated_depsgraph_get())
+                samples.append({semantic:er.matrix_world@er.pose.bones[name].matrix for semantic,name in mapped['bones'].items()})
+                if progress: progress('SOURCE',i+1,len(frames))
+            curves={key:[] for key in destination.values()};diagnostics=[]
+            for i,(frame,sample) in enumerate(zip(frames,samples)):
+                if cancelled and cancelled(): raise InterruptedError('已取消，原动作和输入恢复')
+                scene.frame_set(math.floor(frame),subframe=frame-math.floor(frame))
+                errors=adapter.solve(sample)
+                for row in errors:
+                    row['frame']=frame
+                diagnostics.extend(errors)
+                current=_channels(target,adapter.names,target_policy=target_policy)
+                source_api.require(current.keys()==native_paths.keys(),'逐帧转换过程中原生动作通道集合改变')
+                for key,value in current.items(): curves[destination[key]].append((frame,value))
+                if progress: progress('TARGET',i+1,len(frames))
         if cancelled and cancelled():raise InterruptedError('已取消，原动作和输入恢复')
         action=bpy.data.actions.new(action_name or target.name+'_重定向_'+clip['action'].name)
         slot=action.slots.new(id_type='OBJECT',name=target.name)
@@ -289,6 +304,9 @@ def convert_resolved(source,target,*,mapped,clip,start=None,end=None,output_star
                                '手指保留原生自由度与限制，不承诺每节全轴精确还原','Spine1未独立重现，表情/视线/镜头未转换',
                                '未执行足底接触检测或修正','辅助动态需依新动作重捕获']}
         if target_policy is not None:report.update(adapter.report_fields())
+        if projection:
+            report['control_layer_channels']={path:output[0] for (path,index),output in destination.items()
+                                              if path!=output[0]}
         action[META]=json.dumps(report,ensure_ascii=False);action.use_fake_user=True
         if calibration_record is not None:
             source_api.require(calibration_key,'校准记录必须给出存储键')
@@ -334,6 +352,13 @@ def begin_preview(target,action,*,slot=None):
     if slot is None:
         source_api.require(len(slots)==1,'请明确选择候选Slot');slot=slots[0]
     source_api.require(slot in slots,'候选OBJECT Slot不存在')
+    from . import control_layer
+    if control_layer.CONTROL_KEY in target:
+        owned=control_layer.verified_retarget_driver_keys(target)
+        paths={(fc.data_path,fc.array_index) for layer in action.layers for strip in layer.strips
+               if strip.type=='KEYFRAME' and (bag:=strip.channelbag(slot)) is not None
+               for fc in bag.fcurves}
+        source_api.require(not (owned&paths),'候选还在写入旧驱动通道，请按当前控件重新转换')
     if 'background_job' in report:
         from . import retarget_job
         retarget_job.validate_candidate_target(target,action)

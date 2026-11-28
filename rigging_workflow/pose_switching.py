@@ -230,6 +230,18 @@ def _to_ik(rig, spec, er, align_fingers):
             _update(rig)
 
 
+def _to_fk(rig, spec):
+    er = _update(rig)
+    desired = [er.pose.bones[name].matrix.copy() for name in spec['mixed']]
+    _plane(desired[0].translation, desired[1].translation,
+           er.pose.bones[spec['mixed'][1]].tail.copy())
+    rig.pose.bones['骨架设置'][spec['mode_key']] = 0.0
+    _update(rig)
+    for name, matrix in zip(spec['fk'], desired):
+        rig.pose.bones[name].matrix = matrix
+        _update(rig)
+
+
 def switch(rig, *, limb='ARM', side='L', target='IK', align_fingers=True,
            max_error_meters=0.001):
     """Match a generated arm or leg and return actual measured output error.
@@ -250,6 +262,10 @@ def switch(rig, *, limb='ARM', side='L', target='IK', align_fingers=True,
     if (isinstance(max_error_meters, bool) or not isinstance(max_error_meters, (int, float))
             or not math.isfinite(max_error_meters) or max_error_meters <= 0):
         raise ValueError('max_error_meters必须是有限正数，单位为米')
+    from . import control_layer
+    if isinstance(rig, bpy.types.Object) and control_layer.CONTROL_KEY in rig:
+        return control_layer.set_limb_mode(rig, limb=limb.title(), side=side, mode=target,
+            align_fingers=align_fingers, max_error_meters=max_error_meters)
     if limb == 'LEG':
         from . import pose_switching_leg
         return pose_switching_leg.switch(rig, side=side, target=target,
@@ -273,14 +289,7 @@ def switch(rig, *, limb='ARM', side='L', target='IK', align_fingers=True,
             _to_ik(rig, spec, er, align_fingers)
             settings[spec['mode_key']] = wanted_mode
         else:
-            desired = [er.pose.bones[name].matrix.copy() for name in spec['mixed']]
-            _plane(desired[0].translation, desired[1].translation,
-                   er.pose.bones[spec['mixed'][1]].tail.copy())
-            settings[spec['mode_key']] = wanted_mode
-            _update(rig)
-            for name, matrix in zip(spec['fk'], desired):
-                rig.pose.bones[name].matrix = matrix
-                _update(rig)
+            _to_fk(rig, spec)
         actual_mode = float(_update(rig).pose.bones[settings.name][spec['mode_key']])
         if not math.isfinite(actual_mode) or abs(actual_mode - wanted_mode) > 1e-6:
             raise PoseSwitchError('模式仍受动作或驱动控制，无法完成切换；已恢复原姿态',

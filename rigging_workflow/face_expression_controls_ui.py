@@ -160,7 +160,7 @@ class C94FEC_OT_BoardArt(bpy.types.Operator):
 class C94FEC_OT_PrepareCapture(bpy.types.Operator):
     bl_idname='c94_workflow.expression_prepare_capture'
     bl_label='从本角色继续骨控采样'
-    bl_description='填入本角色明确保存的原生采样源；不改变模式、姿态或已有Key'
+    bl_description='填入本角色明确保存的原生采样源；不改变模式、姿态或已有形态键'
     def execute(self,context):
         from . import face_capture_ui,face_capture_group
         opts=getattr(context.scene,OPTIONS);target=getattr(context.scene,face_capture_ui.OPTIONS)
@@ -295,7 +295,7 @@ class C94FEC_OT_Layout(bpy.types.Operator):
 
 class C94FEC_OT_Members(bpy.types.Operator):
     bl_idname='c94_workflow.expression_members'
-    bl_label='添加所选表情Mesh'
+    bl_label='添加所选表情网格'
     remove_index:IntProperty(default=-1)
     def execute(self,context):
         opts=getattr(context.scene,OPTIONS)
@@ -311,7 +311,7 @@ class C94FEC_OT_Members(bpy.types.Operator):
 class C94FEC_OT_Create(bpy.types.Operator):
     bl_idname='c94_workflow.expression_controls_create'
     bl_label='建立同组表情控制'
-    bl_description='给明确同组皮肤/附件创建独立控制对象和原生Key驱动；所有表情先清零'
+    bl_description='给明确同组皮肤/附件创建独立控制对象和原生形态键驱动；所有表情先清零'
     bl_options={'REGISTER','UNDO'}
     def execute(self,context):
         opts=getattr(context.scene,OPTIONS)
@@ -338,7 +338,7 @@ class C94FEC_OT_Activate(bpy.types.Operator):
 class C94FEC_OT_Record(bpy.types.Operator):
     bl_idname='c94_workflow.expression_record'
     bl_label='记录当前帧全部表情'
-    bl_description='以新Action副本记录本控制对象当前帧；旧Action曲线保留，不自动补前帧'
+    bl_description='以新动作副本记录本控制对象当前帧；旧动作曲线保留，不自动补前帧'
     bl_options={'REGISTER','UNDO'}
     def execute(self,context):
         try:
@@ -375,7 +375,7 @@ class C94FEC_PT_Controls(bpy.types.Panel):
                 focus=face_focus.status(context)
                 if focus.get('active'):
                     if not focus.get('layer_active',True):
-                        layout.label(text='点击显示Key板或骨控重新激活检查层')
+                        layout.label(text='点击显示形态键板或骨控重新激活检查层')
                     line=layout.row(align=True)
                     line.operator('c94_workflow.face_focus',text='恢复原视图').action='LEAVE'
                     for space,label in [('KEY','显示Key板'),('BONE','显示骨控')]:
@@ -434,9 +434,9 @@ class C94FEC_PT_Controls(bpy.types.Panel):
                 line=layout.row(align=True)
                 for target,label in [('KEY','复位→形态键'),('BONE','复位→骨控')]:
                     op=line.operator('c94_workflow.expression_switch',text=label);op.target=target;op.reset=True
-                layout.label(text='骨控模式本组Key为0；切换不匹配任意表情')
+                layout.label(text='骨控模式本组形态键为0；切换不匹配任意表情')
                 layout.label(text='多滑杆线性叠加效果须另查')
-                layout.label(text='旧Action保留；只记录当前帧')
+                layout.label(text='旧动作保留；只记录当前帧')
                 from . import face_graph_board as board
                 if mouth:
                     layout.operator('c94_workflow.expression_board_select',text='选择二维口型控骨')
@@ -452,7 +452,7 @@ class C94FEC_PT_Controls(bpy.types.Panel):
                     _,b,_,_=board._read(opts.hub)
                     for i,r in enumerate(record['channels']):
                         layout.operator('c94_workflow.expression_board_layout',text=b['channels'][i]['section']+' · '+r['name']+' 布局').index=i
-                    layout.label(text='表情动画在同一rig的滑杆骨；旧Action保留')
+                    layout.label(text='表情动画在同一骨架的滑杆骨；旧动作保留')
                 else:
                     layout.prop(opts,'font');layout.operator('c94_workflow.expression_board_create')
                     layout.operator('c94_workflow.mouth_grid_initialize')
@@ -466,7 +466,7 @@ class C94FEC_PT_Controls(bpy.types.Panel):
         else:
             layout.prop(opts,'rig')
             for i,row in enumerate(opts.members):
-                line=layout.row(align=True);line.prop(row,'source',text='同步Mesh')
+                line=layout.row(align=True);line.prop(row,'source',text='同步网格')
                 line.operator('c94_workflow.expression_members',text='',icon='X').remove_index=i
             layout.operator('c94_workflow.expression_members').remove_index=-1
             layout.operator('c94_workflow.expression_controls_create')

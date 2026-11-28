@@ -57,12 +57,36 @@ def _key_state(mesh):
                         k.interpolation, k.frame] for k in keys.key_blocks]}
 
 
-def _source_state(obj):
+def _durable_animation(owner):
+    """Keep the complete authored animation, replacing only process-local Action IDs."""
+    animation = face._animation(owner)
+    if animation is None:
+        return None
+
+    def use_action_identity(snapshot, action):
+        if snapshot is not None:
+            snapshot[0] = sig._plain(action)
+
+    def use_strip_identities(snapshots, strips):
+        for (rna, action, children), strip in zip(snapshots, strips, strict=True):
+            use_action_identity(action, strip.action)
+            if strip.type == 'META':
+                use_strip_identities(children, strip.strips)
+
+    ad = owner.animation_data
+    use_action_identity(animation[2], ad.action)
+    for (_, snapshots), track in zip(animation[3], ad.nla_tracks, strict=True):
+        use_strip_identities(snapshots, track.strips)
+    return animation
+
+
+def _source_state(obj, *, durable=False):
+    animation = _durable_animation if durable else face._animation
     value = entry._source_state(obj)
     value['all_key_settings'] = _key_state(obj.data)
-    value['animation_complete'] = face._animation(obj)
-    value['mesh_animation_complete'] = face._animation(obj.data)
-    value['Key_animation_complete'] = face._animation(obj.data.shape_keys) if obj.data.shape_keys else None
+    value['animation_complete'] = animation(obj)
+    value['mesh_animation_complete'] = animation(obj.data)
+    value['Key_animation_complete'] = animation(obj.data.shape_keys) if obj.data.shape_keys else None
     return value
 
 
@@ -349,16 +373,7 @@ class Plan:
         self._check()
         return self.report
 
-    def _copy_mesh(self, source, rig, collection, mapping, index):
-        obj = self._own(source.copy()); obj.data = self._own(source.data.copy()); mapping[source] = obj; mapping[source.data] = obj.data
-        obj.name = self.label+'__作者_%02d' % index
-        collection.objects.link(obj)
-        if source.data.shape_keys:
-            _need(obj.data.shape_keys != source.data.shape_keys, 'Mesh.copy未隔离Key，不修改原源')
-            mapping[source.data.shape_keys] = obj.data.shape_keys
-        if obj.parent == self.source_rig:
-            world = obj.matrix_world.copy(); obj.parent = rig; obj.matrix_world = world
-        obj.modifiers[0].object = rig
+    def _plan_mesh(self, source, rig):
         old_names, old_rows = rebuild._weights(source)
         old_map = self.meta['reference_mapping']; new_map = rebuild._metadata(rig)['reference_mapping']
         inverse = {v:k for k,v in new_map.items()}; merge = self.configuration['definition']['merge_mapping']
@@ -391,8 +406,26 @@ class Plan:
             output[name] = np.asarray([r.get(name,0.) for r in old_rows])
         _need(all(np.isfinite(a).all() and np.all(a.astype(np.float32) <= 1) for a in output.values()),
               '归并质量超过float32的0..1；不截断或归一化')
-        for group in list(obj.vertex_groups): obj.vertex_groups.remove(group)
         order = [n for n in old_names if n in output] + sorted(set(output)-set(old_names))
+        return {'old_names': old_names, 'old_rows': old_rows, 'old_map': old_map,
+                'new_map': new_map, 'destinations': destinations, 'masks': masks,
+                'output': output, 'changed': changed, 'targets': targets, 'order': order}
+
+
+    def _copy_mesh(self, source, rig, collection, mapping, index, weight_plan):
+        obj = self._own(source.copy()); obj.data = self._own(source.data.copy()); mapping[source] = obj; mapping[source.data] = obj.data
+        obj.name = self.label+'__作者_%02d' % index
+        collection.objects.link(obj)
+        if source.data.shape_keys:
+            _need(obj.data.shape_keys != source.data.shape_keys, 'Mesh.copy未隔离Key，不修改原源')
+            mapping[source.data.shape_keys] = obj.data.shape_keys
+        if obj.parent == self.source_rig:
+            world = obj.matrix_world.copy(); obj.parent = rig; obj.matrix_world = world
+        obj.modifiers[0].object = rig
+        old_names, old_rows, old_map, new_map = (weight_plan[k] for k in ('old_names','old_rows','old_map','new_map'))
+        destinations, masks, output, changed, targets, order = (weight_plan[k] for k in
+            ('destinations','masks','output','changed','targets','order'))
+        for group in list(obj.vertex_groups): obj.vertex_groups.remove(group)
         for name in order:
             group=obj.vertex_groups.new(name=name)
             for i,value in enumerate(output[name].astype(np.float32)):
@@ -420,7 +453,7 @@ class Plan:
                 'non_target_columns_exact':True,'merge_float32_max_error':max((float(np.max(abs(a-a.astype(np.float32)))) for a in output.values()),default=0.)}
         return obj,report
 
-    def _copy_board(self, item, rig, collection, mapping):
+    def _stage_board(self, item, rig, collection, mapping):
         oldrig=self.source_rig; oldhub=item['hub']; board=item['board']
         if board:
             display=oldhub['board_display']; name=self.label+'__'+item['kind']+'板'
@@ -428,6 +461,7 @@ class Plan:
             newdisplay=self._own(bpy.data.collections.new(name)); collection.children.link(newdisplay);mapping[display]=newdisplay
             self._collections[board['collection']]=name
             newbc=rig.data.collections.new(name,parent=rig.data.collections_all[modes.SPACES['panel']])
+            newbc.is_visible = oldrig.data.collections_all[board['collection']].is_visible
             active=bpy.context.view_layer.objects.active;selected=list(bpy.context.selected_objects)
             try:
                 for obj in selected:obj.select_set(False)
@@ -448,6 +482,7 @@ class Plan:
             for n in item['bones']:
                 newbc.assign(rig.data.bones[n])
             for old in display.objects:
+                _need(old.type != 'MESH' or not old.vertex_groups, '控制板显示对象含权重，请先隔离非蒙皮显示件')
                 new=self._own(old.copy());new.name=self.label+'__'+old.name
                 if old.data:new.data=self._own(old.data.copy());mapping[old.data]=new.data
                 newdisplay.objects.link(new);new.hide_set(old.hide_get());mapping[old]=new
@@ -460,8 +495,18 @@ class Plan:
                     target=new.constraints.new(c.type);_copy_rna(c,target,mapping)
             for old in display.objects:
                 new=mapping[old]
-                if new.parent in mapping:new.parent=mapping[new.parent]
+                if old.parent in mapping:
+                    new.parent = mapping[old.parent]
+                    new.matrix_parent_inverse = old.matrix_parent_inverse.copy()
                 _retarget(new,mapping,self._collections)
+        if board:
+            return {'hub': oldhub.name, 'display': newdisplay.name, 'old_collection': board['collection'],
+                    'objects': [[old.name, mapping[old].name] for old in display.objects]}
+        return {'hub': oldhub.name}
+
+
+    def _copy_board_hub(self, item, collection, mapping):
+        oldhub, board = item['hub'], item['board']
         hub=self._own(oldhub.copy());hub.name=self.label+'__'+oldhub.name;collection.objects.link(hub);mapping[oldhub]=hub
         copied=_isolate_animation(oldhub,hub,self.label,self._own)
         if copied:self._animations.append(copied)
@@ -517,155 +562,320 @@ class Plan:
                 'needs_retarget':pending,'unsupported_pending':unsupported}
 
     def execute(self):
+        raise ValueError('先生成并保存无权重候选骨架，完成同一范围双审后再采用返工迁权')
+
+    def _face_compatible(self, rig, weight_plans):
+        board_bones = {name for item in self._hubs for name in item['bones']}
+        old_face = (set(modes._bone_names(self.source_rig)) | {'表情面板'}) - board_bones \
+            if self.source_rig.get(modes.STATE_KEY) else set()
+        for source, weights in zip(self.objects, weight_plans):
+            if source.data.shape_keys:
+                old_face.update(name for name in weights['old_names']
+                                if name in self.source_rig.data.bones
+                                and self.source_rig.data.bones[name].use_deform
+                                and any(row.get(name, 0.) > 0 for row in weights['old_rows']))
+        old_context, new_context = _contract_context(self.source_rig), _contract_context(rig)
+        if not old_face or not all(_equal_contract(_bone_contract(self.source_rig, name, old_context),
+                                                    _bone_contract(rig, name, new_context)) for name in old_face):
+            return False
+        return all(not any(name != target and any(row.get(name, 0.) > 0 for row in weights['old_rows'])
+                           for name, target in weights['destinations'].items())
+                   for source, weights in zip(self.objects, weight_plans) if source.data.shape_keys)
+
+    def _prepare_controls(self, rig, collection, mapping, face_ok):
+        if face_ok:
+            neutral = _json(self.source_rig, modes.STATE_KEY)['neutral']
+            for name, row in neutral['bones'].items():
+                if name in rig.pose.bones:
+                    for field in _CHANNELS:
+                        setattr(rig.pose.bones[name], field, row[field])
+                    rig.pose.bones[name].rotation_mode = row['rotation_mode']
+            for prop in neutral['properties']:
+                rig.pose.bones[prop['bone']][prop['key']] = prop['value']
+        old_context,new_context=_contract_context(self.source_rig),_contract_context(rig)
+        contracts={n:_equal_contract(_bone_contract(self.source_rig,n,old_context),_bone_contract(rig,n,new_context))
+                   for n in self.source_rig.pose.bones.keys() if n in rig.pose.bones}
+        copied_properties=[]
+        incoming={(r['bone'],r['property']) for r in mode_semantics.available(rig)}
+        for row in mode_semantics.available(self.source_rig):
+            name,key=row['bone'],row['property']
+            if (name,key) in incoming and _property_schema(self.source_rig.pose.bones[name],key)==_property_schema(rig.pose.bones[name],key):
+                rig.pose.bones[name][key]=self.source_rig.pose.bones[name][key];copied_properties.append([name,key])
+        transferred=[];widgets={}
+        for n,compatible in contracts.items():
+            if not compatible:continue
+            old=self.source_rig.pose.bones[n];new=rig.pose.bones[n]
+            for field in _CHANNELS:setattr(new,field,getattr(old,field))
+            for field in ('custom_shape_translation','custom_shape_rotation_euler','custom_shape_scale_xyz','use_custom_shape_bone_size'):
+                setattr(new,field,getattr(old,field))
+            if old.custom_shape:
+                if old.custom_shape not in widgets:
+                    if old.custom_shape in mapping:widgets[old.custom_shape]=mapping[old.custom_shape]
+                    else:
+                        shape=self._own(old.custom_shape.copy());shape.name=self.label+'__'+old.custom_shape.name
+                        if shape.data:shape.data=self._own(old.custom_shape.data.copy())
+                        collection.objects.link(shape);shape.hide_set(old.custom_shape.hide_get());widgets[old.custom_shape]=shape
+                new.custom_shape=widgets[old.custom_shape]
+            if old.custom_shape_transform and old.custom_shape_transform.name in rig.pose.bones:
+                new.custom_shape_transform=rig.pose.bones[old.custom_shape_transform.name]
+            transferred.append(n)
+        generated=panel.read_layout(rig);layout=copy.deepcopy(self._layout);kept=[];retired=[]
+        for row in layout['rows']:
+            if row['kind']=='collection' and row.get('collection') in self._collections:
+                row['collection']=self._collections[row['collection']]
+            valid=(row['kind']=='collection' and row.get('collection') in rig.data.collections_all
+                   or row['kind']=='property' and row.get('bone') in rig.pose.bones and row.get('property') in rig.pose.bones[row['bone']]
+                   or row['kind']=='action')
+            if valid:kept.append(row)
+            else:retired.append({'row':row,'status':'requires_rebuild','reason':'explicit_removed_module_or_missing_reference'})
+        identities={(r['kind'],r.get('collection'),r.get('bone'),r.get('property'),r.get('action'),r.get('limb'),r.get('side'),r.get('target')) for r in kept}
+        added=[r for r in generated['rows'] if (r['kind'],r.get('collection'),r.get('bone'),r.get('property'),r.get('action'),r.get('limb'),r.get('side'),r.get('target')) not in identities]
+        layout.update(label=self.label,editing=False,rows=kept+added,
+                      defaults={**generated['defaults'],**{n:v for n,v in layout['defaults'].items() if contracts.get(n)}})
+        panel._save(rig,layout)
+        action_report=self._copy_action(rig,contracts)
+        return {'control_tweaks': transferred, 'action': action_report,
+                'native_properties': copied_properties,
+                'layout': {'kept_row_ids': [r['id'] for r in kept],
+                           'added_row_ids': [r['id'] for r in added], 'retired_rows': retired}}
+
+
+    def _scope(self, rig, plans, face_ok, boards):
+        sources = self.objects + self._author_sources
+        rig_state = {key: value for key, value in self._rig_before.items() if key not in {'rig', 'data'}}
+        rig_state['animation'] = _durable_animation(self.source_rig)
+        rig_state['data_animation'] = _durable_animation(self.source_rig.data)
+        meshes = []
+        for i, (source, plan) in enumerate(zip(sources, plans, strict=True), 1):
+            source_state = {key: value for key, value in _source_state(source, durable=True).items()
+                            if key not in {'object_id', 'mesh_id'}}
+            for key in ('animation', 'mesh_animation'):
+                source_state[key] = entry._durable_animation(source_state[key])
+            if source_state['keys']:
+                source_state['keys']['animation'] = entry._durable_animation(source_state['keys']['animation'])
+            affected = plan['changed'] | plan['targets']
+            meshes.append({
+                'source': source.name, 'mesh': source.data.name, 'source_sha256': sig._hash(source_state),
+                'output': self.label + '__作者_%02d' % i, 'vertices': len(source.data.vertices),
+                'write_kind': 'all_rows_to_independent_mesh', 'weight_map': plan['destinations'],
+                # The independent copy retains old entries before replacing its groups.
+                'affected_point_indices': [j for j, row in enumerate(plan['old_rows']) if row],
+                'remapped_point_indices': [j for j, row in enumerate(plan['old_rows'])
+                                           if any(row.get(name, 0.) > 0 for name in affected)],
+                'locked_groups': [group.name for group in source.vertex_groups if group.lock_weight],
+                'preserved_mask_groups': sorted(plan['masks'] & plan['changed']),
+                'columns': {name: sig._array_hash(plan['output'][name].astype('<f4'))
+                            for name in plan['order']},
+            })
+        return {'kind': 'author_rework', 'rig': rig.name, 'source_rig': self.source_rig.name,
+                'source_rig_sha256': sig._hash(rig_state), 'reference': self.reference.name,
+                'old_reference': self.old_reference.name, 'reference_signature': self.new_signature,
+                'old_reference_signature': self.old_signature, 'configuration_id': self.configuration['id'],
+                'frame': list(self._frame), 'view_layer': bpy.context.view_layer.name,
+                'unit_scale': float(self.scene.unit_settings.scale_length), 'meshes': meshes,
+                'face_compatible': face_ok, 'P1_boards': boards,
+                'source_hub_sha256': sig._hash([(sig._plain(dict(item['hub'].items())),
+                                                 _durable_animation(item['hub'])) for item in self._hubs])}
+
+
+    def prepare_candidate(self, *, control_sections=('body', 'arms', 'legs'), shoulder_landmarks=None):
+        """Generate the real final skeleton without touching a production weight field."""
+        from . import candidate_state, control_layer
+
         self._check()
-        before=modules._ids();active=bpy.context.view_layer.objects.active;selected=list(bpy.context.selected_objects)
-        self._owned=[];self._collections={};self._animations=[]
+        before = modules._ids()
+        active = bpy.context.view_layer.objects.active
+        selected = list(bpy.context.selected_objects)
+        self._owned, self._collections, self._animations = [], {}, []
         try:
-            result=generation.generate(self.scene,self.reference,self.template_file,label=self.label,configuration=self.configuration,owned_ids=self._owned)
-            rig,collection=result['rig'],result['collection'];mapping={self.source_rig:rig,self.source_rig.data:rig.data}
-            copies=[];mesh_reports=[]
-            for i,source in enumerate(self.objects+self._author_sources):
-                obj,report=self._copy_mesh(source,rig,collection,mapping,i+1);copies.append(obj);mesh_reports.append(report)
-            # Body-independent face compatibility includes every physical control's ancestors.
-            board_bones={n for item in self._hubs for n in item['bones']}
-            old_face=(set(modes._bone_names(self.source_rig)) | {'表情面板'})-board_bones if self.source_rig.get(modes.STATE_KEY) else set()
-            # Check actual skin consumers as well as physical controls. The
-            # known owned board is copied later; it is not a missing core face.
-            for source in self.objects:
-                if not source.data.shape_keys:continue
-                names,rows=rebuild._weights(source)
-                old_face.update(n for n in names if n in self.source_rig.data.bones
-                    and self.source_rig.data.bones[n].use_deform and any(r.get(n,0.)>0 for r in rows))
-            old_context,new_context=_contract_context(self.source_rig),_contract_context(rig)
-            face_ok=bool(old_face) and all(_equal_contract(_bone_contract(self.source_rig,n,old_context),_bone_contract(rig,n,new_context)) for n in old_face)
-            face_weights_same=all(not any(name!=target and any(row.get(name,0.)>0 for row in rebuild._weights(source)[1])
-                                   for name,target in report['weight_map'].items())
-                                  for source,report in zip(self.objects,mesh_reports) if source.data.shape_keys)
-            face_ok=face_ok and face_weights_same
-            hubs=[]
-            if face_ok:
-                for item in self._hubs:hubs.append(self._copy_board(item,rig,collection,mapping))
-            known_members={o for item in self._hubs for o in item['members']}
-            for source in self.objects+self._author_sources:
-                obj=mapping[source]
-                if obj.data.shape_keys and (not face_ok or source not in known_members):
-                    # A preserved native Key library is not permission to keep
-                    # an old unknown hub, surface clock or sampled Action live.
-                    obj.data.shape_keys.animation_data_clear()
-                    for k in obj.data.shape_keys.key_blocks:k.value=0.
-                elif obj.data.shape_keys:
-                    copied=_isolate_animation(source.data.shape_keys,obj.data.shape_keys,self.label,self._own)
-                    if copied:self._animations.append(copied)
-            for source in self.objects+self._author_sources:
-                obj=mapping[source]
-                _retarget(obj,mapping,self._collections)
-                if obj.data.shape_keys:_retarget(obj.data.shape_keys,mapping,self._collections)
-            for old in list(mapping):
-                if isinstance(old,bpy.types.Object) and old not in self.objects+self._author_sources and old!=self.source_rig:
-                    _retarget(mapping[old],mapping,self._collections)
-            if face_ok:
-                neutral=_json(self.source_rig,modes.STATE_KEY)['neutral']
-                for n,row in neutral['bones'].items():
-                    if n in rig.pose.bones:
-                        for field in _CHANNELS:setattr(rig.pose.bones[n],field,row[field])
-                        rig.pose.bones[n].rotation_mode=row['rotation_mode']
-                for prop in neutral['properties']:rig.pose.bones[prop['bone']][prop['key']]=prop['value']
-                declarations=[]
-                for row in neutral['manual_keys']:
-                    old=bpy.data.shape_keys.get(row['data'])
-                    _need(old in mapping,'手工Key中立声明未包含在明确迁移成员中')
-                    mapped=copy.deepcopy(row);mapped['data']=mapping[old].name;declarations.append(mapped)
-                modes.capture_neutral(rig,manual_keys=declarations)
-                fingerprint=sig._hash(modes._read(rig)['neutral'])
-                for hub in hubs:
-                    value=_json(hub,expressions.STATE_KEY);value['neutral_fingerprint']=fingerprint
-                    hub[expressions.STATE_KEY]=json.dumps(value,ensure_ascii=False)
-                old_library=_json(self.source_rig,library.STATE_KEY)
-                if old_library:
-                    value=copy.deepcopy(old_library);value['neutral_fingerprint']=fingerprint;value['previous']=None
-                    rig[library.STATE_KEY]=json.dumps(value,ensure_ascii=False,allow_nan=False)
-            elif self.source_rig.get(library.STATE_KEY):
-                rig['c94_author_rework_pose_library_archive_v1']=json.dumps({
-                    'status':'requires_rebase','source_rig':self.source_rig.name,
-                    'library':_json(self.source_rig,library.STATE_KEY)},ensure_ascii=False,allow_nan=False)
-            old_context,new_context=_contract_context(self.source_rig),_contract_context(rig)
-            contracts={n:_equal_contract(_bone_contract(self.source_rig,n,old_context),_bone_contract(rig,n,new_context))
-                       for n in self.source_rig.pose.bones.keys() if n in rig.pose.bones}
-            copied_properties=[]
-            incoming={(r['bone'],r['property']) for r in mode_semantics.available(rig)}
-            for row in mode_semantics.available(self.source_rig):
-                name,key=row['bone'],row['property']
-                if (name,key) in incoming and _property_schema(self.source_rig.pose.bones[name],key)==_property_schema(rig.pose.bones[name],key):
-                    rig.pose.bones[name][key]=self.source_rig.pose.bones[name][key];copied_properties.append([name,key])
-            transferred=[];widgets={}
-            for n,compatible in contracts.items():
-                if not compatible:continue
-                old=self.source_rig.pose.bones[n];new=rig.pose.bones[n]
-                for field in _CHANNELS:setattr(new,field,getattr(old,field))
-                for field in ('custom_shape_translation','custom_shape_rotation_euler','custom_shape_scale_xyz','use_custom_shape_bone_size'):
-                    setattr(new,field,getattr(old,field))
-                if old.custom_shape:
-                    if old.custom_shape not in widgets:
-                        if old.custom_shape in mapping:widgets[old.custom_shape]=mapping[old.custom_shape]
-                        else:
-                            shape=self._own(old.custom_shape.copy());shape.name=self.label+'__'+old.custom_shape.name
-                            if shape.data:shape.data=self._own(old.custom_shape.data.copy())
-                            collection.objects.link(shape);shape.hide_set(old.custom_shape.hide_get());widgets[old.custom_shape]=shape
-                    new.custom_shape=widgets[old.custom_shape]
-                if old.custom_shape_transform and old.custom_shape_transform.name in rig.pose.bones:
-                    new.custom_shape_transform=rig.pose.bones[old.custom_shape_transform.name]
-                transferred.append(n)
-            generated=panel.read_layout(rig);layout=copy.deepcopy(self._layout);kept=[];retired=[]
-            for row in layout['rows']:
-                if row['kind']=='collection' and row.get('collection') in self._collections:
-                    row['collection']=self._collections[row['collection']]
-                valid=(row['kind']=='collection' and row.get('collection') in rig.data.collections_all
-                       or row['kind']=='property' and row.get('bone') in rig.pose.bones and row.get('property') in rig.pose.bones[row['bone']]
-                       or row['kind']=='action')
-                if valid:kept.append(row)
-                else:retired.append({'row':row,'status':'requires_rebuild','reason':'explicit_removed_module_or_missing_reference'})
-            identities={(r['kind'],r.get('collection'),r.get('bone'),r.get('property'),r.get('action'),r.get('limb'),r.get('side'),r.get('target')) for r in kept}
-            added=[r for r in generated['rows'] if (r['kind'],r.get('collection'),r.get('bone'),r.get('property'),r.get('action'),r.get('limb'),r.get('side'),r.get('target')) not in identities]
-            layout.update(label=self.label,editing=False,rows=kept+added,
-                          defaults={**generated['defaults'],**{n:v for n,v in layout['defaults'].items() if contracts.get(n)}})
-            panel._save(rig,layout)
-            action_report=self._copy_action(rig,contracts)
+            generated = generation.generate(self.scene, self.reference, self.template_file, label=self.label,
+                                            configuration=self.configuration, owned_ids=self._owned)
+            rig, collection = generated['rig'], generated['collection']
+            if shoulder_landmarks is not None:
+                generation.install_shoulder_girdle(self.scene, self.reference, generated, shoulder_landmarks,
+                                                   owned_ids=self._owned)
+            mapping = {self.source_rig: rig, self.source_rig.data: rig.data}
+            plans = [self._plan_mesh(source, rig) for source in self.objects + self._author_sources]
+            face_ok = self._face_compatible(rig, plans)
+            boards = [self._stage_board(item, rig, collection, mapping) for item in self._hubs] if face_ok else []
+            controls = self._prepare_controls(rig, collection, mapping, face_ok)
+            control_layer.build(rig, family='c94', sections=control_sections,
+                                action_policy='remap', owned_ids=self._owned)
+            if any('display' in board for board in boards):
+                panel_name = modes.SPACES['panel']
+                rig.data.collections_all[panel_name].is_visible = (
+                    self.source_rig.data.collections_all[panel_name].is_visible)
             bpy.context.view_layer.update()
-            if face_ok:
-                for item,hub in zip(self._hubs,hubs):
-                    expressions._read(hub)
-                    if item['kind']=='MOUTH':mouth._read(hub)
-                    elif item['kind']=='GRAPH':graph._read(hub)
-            # No driver in copied native playback may silently depend on old author IDs.
-            old_playback={self.source_rig,*[h['hub'] for h in self._hubs],*self.objects,*self._author_sources}
-            for obj in copies+hubs+[mapping[o] for o in mapping if isinstance(o,bpy.types.Object) and o not in self.objects+self._author_sources and o!=self.source_rig]:
-                for owner in (obj,obj.data if obj.type=='MESH' else None,obj.data.shape_keys if obj.type=='MESH' else None):
-                    if owner and owner.animation_data:
-                        _need(all(t.id not in old_playback for f in owner.animation_data.drivers for v in f.driver.variables for t in v.targets),
-                              '新候选仍消费旧rig/旧作者成员，拒绝伪迁移')
+            scope = self._scope(rig, plans, face_ok, boards)
+            report = dict(self.report, state='awaiting_review', rig=rig.name,
+                          face_contract='compatible' if face_ok else 'requires_recapture',
+                          control_tweaks=controls['control_tweaks'], action=controls['action'])
+            if shoulder_landmarks is not None:
+                report['shoulder_girdle'] = generated['report']['shoulder_girdle']
+            payload = {'scope': scope, 'report': report, 'source_rig': self.source_rig.name,
+                       'reference': self.reference.name, 'old_reference': self.old_reference.name,
+                       'objects': [obj.name for obj in self.objects], 'collection': collection.name,
+                       'template': self.template_file, 'configuration': self.configuration,
+                       'label': self.label, 'boards': boards, 'controls': controls,
+                       'board_animations': self._animations}
             self._check()
-            report=self.report
-            report.update(state='candidate',rig=rig.name,meshes=mesh_reports,source_unchanged=True,
-                face_contract='compatible' if face_ok else 'requires_recapture',
-                hubs=[h.name for h in hubs],
-                pose_library=('copied_verified_inputs_previous_cleared' if face_ok else 'archived_independent_requires_rebase') if self.source_rig.get(library.STATE_KEY) else 'none',
-                face_pending=[] if face_ok else [{'hub':h['hub'].name,'status':'requires_recapture',
-                    'reason':'physical_face_control_or_Key_weight_contract_changed','board_rebuild':'unsupported_pending'} for h in self._hubs],
-                control_tweaks=transferred,action=action_report,
-                native_properties=copied_properties,
-                owner_animations=self._animations,
-                layout={'kept_row_ids':[r['id'] for r in kept],'added_row_ids':[r['id'] for r in added],'retired_rows':retired},
-                dynamics={'status':'requires_rebake','source_records':[k for k in self.source_rig.keys() if k in {'c94_elastic_v1','c94_surface_dynamic_v1'}]})
-            rig[STATE_KEY]=json.dumps(report,ensure_ascii=False,allow_nan=False)
-            self._report=report;self._state='executed'
-            return {'rig':rig,'collection':collection,'objects':copies[:len(self.objects)],
-                    'author_sources':copies[len(self.objects):],'hubs':hubs,'report':copy.deepcopy(report)}
+            record = candidate_state.record(self.scene, rig, kind='author_rework', payload=payload)
+            return {'rig': rig, 'collection': collection, 'objects': [], 'candidate_id': record['id'],
+                    'scope': scope, 'report': report}
         except Exception:
-            modules._cleanup(before,active,selected,owned_ids=self._owned)
-            self._state='failed'
+            modules._cleanup(before, active, selected, owned_ids=self._owned)
             raise
         finally:
-            rebuild._restore_selection(active,selected)
+            rebuild._restore_selection(active, selected)
+
+
+    def _recover_board_mapping(self, rig, payload):
+        mapping = {self.source_rig: rig, self.source_rig.data: rig.data}
+        if payload['scope']['face_compatible']:
+            _need([item['hub'].name for item in self._hubs] == [row['hub'] for row in payload['boards']],
+                  '已审核P1面板成员已改变')
+        for row in payload['boards']:
+            hub = bpy.data.objects[row['hub']]
+            if 'display' in row:
+                old_display = hub['board_display']
+                display = bpy.data.collections.get(row['display'])
+                _need(display is not None and set(display.objects.keys()) == {new for _, new in row['objects']},
+                      '审核后的P1显示组件已改变')
+                mapping[old_display] = display
+                self._collections[row['old_collection']] = display.name
+                for old_name, new_name in row['objects']:
+                    old, new = old_display.objects[old_name], display.objects[new_name]
+                    mapping[old] = new
+                    if old.data:
+                        _need(new.data and new.data != old.data, 'P1显示数据已改成共享或缺失')
+                        mapping[old.data] = new.data
+        return mapping
+
+
+    def _apply_prepared(self, rig, collection, scope, payload, plans, mapping):
+        self._check()
+        face_ok = scope['face_compatible']
+        copies, mesh_reports = [], []
+        for i, (source, weights) in enumerate(zip(self.objects+self._author_sources, plans, strict=True), 1):
+            obj, report = self._copy_mesh(source, rig, collection, mapping, i, weights)
+            copies.append(obj)
+            mesh_reports.append(report)
+        hubs = [self._copy_board_hub(item, collection, mapping) for item in self._hubs] if face_ok else []
+        known_members={o for item in self._hubs for o in item['members']}
+        for source in self.objects+self._author_sources:
+            obj=mapping[source]
+            if obj.data.shape_keys and (not face_ok or source not in known_members):
+                # A preserved native Key library is not permission to keep
+                # an old unknown hub, surface clock or sampled Action live.
+                obj.data.shape_keys.animation_data_clear()
+                for k in obj.data.shape_keys.key_blocks:k.value=0.
+            elif obj.data.shape_keys:
+                copied=_isolate_animation(source.data.shape_keys,obj.data.shape_keys,self.label,self._own)
+                if copied:self._animations.append(copied)
+        for source in self.objects+self._author_sources:
+            obj=mapping[source]
+            _retarget(obj,mapping,self._collections)
+            if obj.data.shape_keys:_retarget(obj.data.shape_keys,mapping,self._collections)
+        for old in list(mapping):
+            if isinstance(old,bpy.types.Object) and old not in self.objects+self._author_sources and old!=self.source_rig:
+                _retarget(mapping[old],mapping,self._collections)
+        if face_ok:
+            neutral=_json(self.source_rig,modes.STATE_KEY)['neutral']
+            declarations=[]
+            for row in neutral['manual_keys']:
+                old=bpy.data.shape_keys.get(row['data'])
+                _need(old in mapping,'手工Key中立声明未包含在明确迁移成员中')
+                mapped=copy.deepcopy(row);mapped['data']=mapping[old].name;declarations.append(mapped)
+            modes.capture_neutral(rig,manual_keys=declarations)
+            fingerprint=sig._hash(modes._read(rig)['neutral'])
+            for hub in hubs:
+                value=_json(hub,expressions.STATE_KEY);value['neutral_fingerprint']=fingerprint
+                hub[expressions.STATE_KEY]=json.dumps(value,ensure_ascii=False)
+            old_library=_json(self.source_rig,library.STATE_KEY)
+            if old_library:
+                value=copy.deepcopy(old_library);value['neutral_fingerprint']=fingerprint;value['previous']=None
+                rig[library.STATE_KEY]=json.dumps(value,ensure_ascii=False,allow_nan=False)
+        elif self.source_rig.get(library.STATE_KEY):
+            rig['c94_author_rework_pose_library_archive_v1']=json.dumps({
+                'status':'requires_rebase','source_rig':self.source_rig.name,
+                'library':_json(self.source_rig,library.STATE_KEY)},ensure_ascii=False,allow_nan=False)
+        bpy.context.view_layer.update()
+        if face_ok:
+            for item,hub in zip(self._hubs,hubs):
+                expressions._read(hub)
+                if item['kind']=='MOUTH':mouth._read(hub)
+                elif item['kind']=='GRAPH':graph._read(hub)
+        # No driver in copied native playback may silently depend on old author IDs.
+        old_playback={self.source_rig,*[h['hub'] for h in self._hubs],*self.objects,*self._author_sources}
+        for obj in copies+hubs+[mapping[o] for o in mapping if isinstance(o,bpy.types.Object) and o not in self.objects+self._author_sources and o!=self.source_rig]:
+            for owner in (obj,obj.data if obj.type=='MESH' else None,obj.data.shape_keys if obj.type=='MESH' else None):
+                if owner and owner.animation_data:
+                    _need(all(t.id not in old_playback for f in owner.animation_data.drivers for v in f.driver.variables for t in v.targets),
+                          '新候选仍消费旧rig/旧作者成员，拒绝伪迁移')
+        self._check()
+        report=self.report
+        report.update(state='candidate',rig=rig.name,meshes=mesh_reports,source_unchanged=True,
+            face_contract='compatible' if face_ok else 'requires_recapture',
+            hubs=[h.name for h in hubs],
+            pose_library=('copied_verified_inputs_previous_cleared' if face_ok else 'archived_independent_requires_rebase') if self.source_rig.get(library.STATE_KEY) else 'none',
+            face_pending=[] if face_ok else [{'hub':h['hub'].name,'status':'requires_recapture',
+                'reason':'physical_face_control_or_Key_weight_contract_changed','board_rebuild':'unsupported_pending'} for h in self._hubs],
+            control_tweaks=payload["controls"]["control_tweaks"],action=payload["controls"]["action"],
+            native_properties=payload["controls"]["native_properties"],
+            owner_animations=self._animations,
+            layout=payload["controls"]["layout"],
+            dynamics={'status':'requires_rebake','source_records':[k for k in self.source_rig.keys() if k in {'c94_elastic_v1','c94_surface_dynamic_v1'}]})
+        rig[STATE_KEY]=json.dumps(report,ensure_ascii=False,allow_nan=False)
+        self._report=report;self._state='executed'
+        return {'rig':rig,'collection':collection,'objects':copies[:len(self.objects)],
+                'author_sources':copies[len(self.objects):],'hubs':hubs,'report':copy.deepcopy(report)}
+
+
+def inspect_candidate(scene, candidate_id):
+    from . import candidate_state
+
+    rig, record = candidate_state.resolve(scene, candidate_id, kind='author_rework')
+    payload = record['payload']
+    collection = bpy.data.collections.get(payload['collection'])
+    _need(collection is not None and collection.objects.get(rig.name) == rig,
+          '已审核骨架不再属于原候选集合')
+    plan = Plan(scene, scene.objects.get(payload['source_rig']),
+                [scene.objects.get(name) for name in payload['objects']],
+                scene.objects.get(payload['reference']), payload['template'], payload['configuration'],
+                label=payload['label'], old_reference=scene.objects.get(payload['old_reference']))
+    current = [plan._plan_mesh(source, rig) for source in plan.objects + plan._author_sources]
+    scope = plan._scope(rig, current, payload['scope']['face_compatible'], payload['boards'])
+    _need(scope == payload['scope'], '原件、定位参考或迁权范围已变，须重新准备及审核')
+    mapping = plan._recover_board_mapping(rig, payload)
+    return plan, rig, collection, scope, payload, current, mapping
+
+
+def apply_candidate(scene, candidate_id):
+    from . import candidate_state
+
+    plan, rig, collection, scope, payload, current, mapping = inspect_candidate(scene, candidate_id)
+    _need(not rig.get(STATE_KEY), '此候选已完成返工迁权')
+    candidate_state.require_operation(rig, operation='author_rework.apply', scope=scope)
+    before = modules._ids()
+    active = bpy.context.view_layer.objects.active
+    selected = list(bpy.context.selected_objects)
+    plan._animations = list(payload['board_animations'])
+    # Candidate rig records are the only pre-existing data mutated by face handoff.
+    touched = (modes.STATE_KEY, library.STATE_KEY, 'c94_author_rework_pose_library_archive_v1', STATE_KEY)
+    preserved = {key: rig[key] for key in touched if key in rig}
+    try:
+        result = plan._apply_prepared(rig, collection, scope, payload, current, mapping)
+        return {**result, 'candidate_id': candidate_id}
+    except Exception:
+        for key in touched:
+            if key in preserved:
+                rig[key] = preserved[key]
+            elif key in rig:
+                del rig[key]
+        modules._cleanup(before, active, selected, owned_ids=plan._owned)
+        raise
+    finally:
+        rebuild._restore_selection(active, selected)
 
 
 def prepare(scene,source_rig,objects,reference,template_file,configuration,*,label,old_reference=None):

@@ -61,6 +61,7 @@ class Adapter:
         if orientation_reference!='REST': raise ValueError('当前适配器只支持REST朝向参考')
         self.source,self.target,self.mapping=source,target,mapping
         self.rows=rows(mapping,include_fingers); self.motion=motion
+        self.root_rotation = "HEADING"
         self.finger_chains=[finger+'.'+side for side in ('L','R') for finger in FINGERS
                             if any(r[0]==finger+'1.'+side for r in self.rows)]
         masters=[FINGERS[f.split('.')[0]]+'.'+f.split('.')[1] for f in self.finger_chains if not f.startswith('thumb.')]
@@ -157,10 +158,20 @@ class Adapter:
         desired={dst:self.align@source_pose[src]@self.rest[src].inverted()@self.align.inverted()@self.calibration[dst]
                  for _,src,dst,_ in self.rows}
         delta=source_pose['hips']@self.rest['hips'].inverted()
-        facing=self.align.to_3x3()@(delta.to_3x3()@Vector((0,-1,0)))
-        yaw=math.atan2(facing.x,-facing.y)
-        root=Matrix.Rotation(yaw,4,'Z')@self.neutral['根骨骼']
-        root.translation=self.neutral['根骨骼'].translation
+        neutral_root = self.neutral['根骨骼']
+        if self.root_rotation == "FULL":
+            align = self.align.to_3x3()
+            rotation = align @ delta.to_quaternion().to_matrix() @ align.inverted()
+            root = rotation.to_4x4() @ neutral_root
+            # The source rotation is about the pelvis. Compensate for the
+            # target root sitting at the feet before adding source travel.
+            pelvis_offset = self.neutral['盆骨控制器'].translation - neutral_root.translation
+            root.translation = neutral_root.translation + pelvis_offset - rotation @ pelvis_offset
+        else:
+            facing = self.align.to_3x3() @ (delta.to_3x3() @ Vector((0, -1, 0)))
+            yaw = math.atan2(facing.x, -facing.y)
+            root = Matrix.Rotation(yaw, 4, 'Z') @ neutral_root
+            root.translation = neutral_root.translation
         displacement=source_pose['hips'].translation-self.source_hip
         if self.motion=='IN_PLACE': displacement.x=displacement.y=0.0
         displacement=self.align.to_3x3()@displacement*self.scale

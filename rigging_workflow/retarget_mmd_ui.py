@@ -51,13 +51,13 @@ def _resolve(opts,*,check_mapping=True):
 
 class C94MMD_Options(bpy.types.PropertyGroup):
     source:PointerProperty(name='已登记MMD源骨架',type=bpy.types.Object,poll=_armature)
-    source_is_appended:BoolProperty(name='使用已精确追加的登记来源',description='当前Scene不是来源登记Scene；仍严格核对profile、真实对象UID、完整Actions/Slots与骨架图',default=False)
-    target:PointerProperty(name='C94目标骨架',type=bpy.types.Object,poll=_armature)
-    profile_path:StringProperty(name='来源profile JSON',subtype='FILE_PATH')
-    profile_text:PointerProperty(name='持久来源profile',type=bpy.types.Text)
+    source_is_appended:BoolProperty(name='使用已精确追加的登记来源',description='当前场景不是来源登记场景；仍严格核对来源配置、真实对象UID、完整动作和动作槽与骨架图',default=False)
+    target:PointerProperty(name='目标角色骨架',type=bpy.types.Object,poll=_armature)
+    profile_path:StringProperty(name='来源配置 JSON',subtype='FILE_PATH')
+    profile_text:PointerProperty(name='持久来源配置',type=bpy.types.Text)
     clip_id:StringProperty(name='来源片段ID',default='dance')
     clip_choices:StringProperty(name='已登记片段',default='')
-    source_fps:FloatProperty(name='来源fps（与登记时基核对）',default=30.,min=.01,max=1000.)
+    source_fps:FloatProperty(name='来源帧率（与登记时基核对）',default=30.,min=.01,max=1000.)
     mapping_json:StringProperty(name='已核身体语义映射',default='{}')
     start:FloatProperty(name='源起始帧',default=0.,min=0.)
     end:FloatProperty(name='源结束帧',default=30.,min=0.)
@@ -69,7 +69,7 @@ class C94MMD_Options(bpy.types.PropertyGroup):
     face_omitted_json:StringProperty(name='遗漏原因JSON',default='{}')
     include_gaze:BoolProperty(name='合成眼控机制（需另验眼球蒙皮）',default=False)
     gaze_source_kind:EnumProperty(name='视线证据类型',items=(('real_clip','真实来源动作','是否动态以实际方向采样为准'),('mechanism_fixture','明确人工机制fixture','不计为真实动态素材覆盖')),default='real_clip')
-    candidate:PointerProperty(name='同一最终候选Action',type=bpy.types.Action)
+    candidate:PointerProperty(name='同一最终候选动作',type=bpy.types.Action)
     preview_after_build:BoolProperty(name='生成后预览',default=True)
     report_text:PointerProperty(name='本次候选报告',type=bpy.types.Text)
     summary:StringProperty(name='上次操作',default='场景入口：先读取已登记来源profile，再检查映射')
@@ -91,7 +91,7 @@ def _face_arguments(opts,profile,ctx):
                        output_start=opts.output_start)
 
 def _convert(opts,context):
-    _require(opts.target is not None and opts.source!=opts.target,'请明确不同的MMD源骨架与C94目标')
+    _require(opts.target is not None and opts.source!=opts.target,'MMD 源骨架与目标角色需分别选择')
     _require(not actions.has_preview(opts.target),'请先停止目标当前预览')
     target_state=actions.snapshot(opts.target)
     backend,profile,_,ctx,_,_=_resolve(opts)
@@ -194,7 +194,7 @@ class C94MMD_PT_scene(bpy.types.Panel):
         advanced=workspace is None or workspace.level!='DAILY'
         layout.label(text='先从文件入口导入，或选择当前场景的已登记来源')
         layout.prop(opts,'source');layout.prop(opts,'source_is_appended');layout.prop(opts,'target');layout.prop(opts,'profile_path')
-        layout.operator(C94MMD_OT_scene.bl_idname,text='读取已登记来源profile').operation='LOAD_PROFILE'
+        layout.operator(C94MMD_OT_scene.bl_idname,text='读取已登记来源配置').operation='LOAD_PROFILE'
         layout.prop(opts,'profile_text');layout.label(text='已登记：'+opts.clip_choices[:72]);layout.prop(opts,'clip_id');layout.prop(opts,'source_fps')
         layout.operator(C94MMD_OT_scene.bl_idname,text='核对持久映射与时基').operation='MAP'
         if advanced:layout.prop(opts,'mapping_json')
@@ -205,7 +205,7 @@ class C94MMD_PT_scene(bpy.types.Panel):
             if advanced:
                 layout.prop(opts,'face_mapping_json');layout.prop(opts,'face_omitted_json')
             else:layout.label(text='首次表情映射请在进阶中配置')
-            layout.label(text='读取所选clip的已有原生morph Action')
+            layout.label(text='读取所选片段的已有原生表情动作')
             layout.label(text='只映射已有通道；近似与遗漏写入报告')
         layout.prop(opts,'include_gaze')
         if opts.include_gaze:

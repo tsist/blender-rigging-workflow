@@ -97,7 +97,7 @@ class C94WF_Options(bpy.types.PropertyGroup):
     toes: BoolProperty(name='独立脚趾', default=True,
                        description='方案声明：保留独立脚趾附属；不影响四肢基本机制')
     skirt: BoolProperty(name='裙摆附属链', default=False,
-                        description='方案声明：按角色另行配置裙摆链；C94不提供现成裙摆结果')
+                        description='为当前角色另行配置裙摆链')
 
 
 class C94WF_OT_SaveConfiguration(bpy.types.Operator):
@@ -311,7 +311,7 @@ def register():
     if _REGISTERED:
         return
     if hasattr(bpy.types.Scene, OPTIONS_ATTR):
-        raise RuntimeError('C94配置属性已被注册；请先卸载原有同名模块')
+        raise RuntimeError('角色配置属性已注册，请先卸载原有同名模块')
     try:
         for cls in _CLASSES:
             bpy.utils.register_class(cls)

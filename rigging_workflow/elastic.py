@@ -14,7 +14,7 @@ import numpy as np
 from mathutils import Quaternion
 from bpy.app.handlers import persistent
 from . import control_panel as panel, pose_switching as pose, mode_animation as animation
-from . import corrective_authoring as sig, face_capture as capture_state
+from . import corrective_authoring as sig, face_capture as capture_state, secondary_dynamics
 
 STATE_KEY='c94_elastic_v1'
 SCHEMA='c94.elastic.v1'
@@ -45,12 +45,12 @@ def _params(values):
 
 
 def _record(rig):
-    panel._writable(rig)
     try:d=json.loads(rig[STATE_KEY])
     except (KeyError,TypeError,ValueError) as exc:raise ValueError('先为当前角色安装胸臀弹性输出') from exc
     _require(d.get('schema')==SCHEMA and isinstance(d.get('groups'),dict),'弹性记录版本无效')
+    settings = secondary_dynamics.control(rig, d.get('settings_control'))
     for key,row in d['groups'].items():
-        _require(key in SPECS and len(row['targets'])==len(row['helpers'])==2,'弹性组记录无效')
+        _require(isinstance(key, str) and key and len(row['targets'])==len(row['helpers'])>0,'弹性组记录无效')
         _params(row['params'])
         for target,helper in zip(row['targets'],row['helpers']):
             pb=rig.pose.bones.get(target);hp=rig.pose.bones.get(helper)
@@ -80,7 +80,7 @@ def _record(rig):
                      '弹性helper有额外驱动，不能同时作为求解写入通道')
             for var,(name,prop) in zip(driver.variables,[('e',row['property_enabled']),('w',row['property_mix'])]):
                 _require(var.name==name and var.type=='SINGLE_PROP' and var.targets[0].id==rig
-                    and var.targets[0].data_path==animation._property_path(rig.pose.bones['骨架设置'],prop),
+                    and var.targets[0].data_path==animation._property_path(settings,prop),
                     '弹性混合驱动输入引用已改变')
     return d
 
@@ -123,16 +123,23 @@ def inspect(rig):
             'preview':session(rig) is not None,'scope':'captured base clip; recapture after source/parameter edits'}
 
 
-def install(rig):
-    panel._writable(rig,data=True);pose._metadata(rig)
+def install(rig, *, target_groups=None, settings_control=None):
     if STATE_KEY in rig:return inspect(rig)
     _require(rig.mode!='EDIT' and rig.data.pose_position=='POSE','结束编辑模式并使用姿态求值')
-    settings=rig.pose.bones.get('骨架设置');_require(settings is not None,'缺少骨架设置')
+    settings = secondary_dynamics.control(rig, settings_control, change_bones=True)
     groups={}
-    for key,(word,targets) in SPECS.items():
-        present=[n in rig.pose.bones for n in targets]
-        _require(all(present) or not any(present),'胸臀模块不完整')
-        if all(present):groups[key]={'targets':targets,'helpers':['弹性输出-'+n[3:] for n in targets],
+    if target_groups is None and pose.RIG_KEY in rig:
+        target_groups = {}
+        for key, (_, names) in SPECS.items():
+            present = [name in rig.pose.bones for name in names]
+            _require(all(present) or not any(present), '胸臀模块不完整')
+            if all(present):
+                target_groups[key] = names
+    for key, targets in secondary_dynamics.targets(rig, target_groups).items():
+        word = SPECS[key][0] if target_groups.get(key) == SPECS.get(key, (None, None))[1] else key
+        groups[key] = {'targets':targets,
+            'helpers':['弹性输出-'+n[3:] if n.startswith('形变-') else 'RW_elastic_'+uuid.uuid4().hex[:16]
+                       for n in targets],
             'property_enabled':word+'弹性启用','property_mix':word+'弹性混合','params':dict(DEFAULTS)}
     _require(groups,'当前配置未启用胸部或臀部模块')
     helpers=[n for g in groups.values() for n in g['helpers']]
@@ -141,6 +148,8 @@ def install(rig):
     _require(not any(n in settings for n in props),'弹性属性已存在，未覆盖')
     layout=rig.get(panel.LAYOUT_KEY);created=[];collection=None
     selected={pb.name for pb in rig.pose.bones if pb.select};active=rig.data.bones.active.name if rig.data.bones.active else None
+    scene = bpy.context.scene
+    frame = scene.frame_current, scene.frame_subframe
     before={p.name:tuple(v for row in p.matrix for v in row) for p in pose._update(rig).pose.bones}
     try:
         with panel._preserve_context(bpy.context,rig):
@@ -163,9 +172,10 @@ def install(rig):
                     for varname,prop in [('e',group['property_enabled']),('w',group['property_mix'])]:
                         var=f.driver.variables.new();var.name=varname;var.type='SINGLE_PROP'
                         var.targets[0].id=rig;var.targets[0].data_path=animation._property_path(settings,prop)
+            scene.frame_set(frame[0], subframe=frame[1])
             current=pose._update(rig)
             error=max(max(abs(a-b) for a,b in zip(row,(v for line in current.pose.bones[n].matrix for v in line))) for n,row in before.items())
-            _require(error<=1e-5,'零增量安装改变原生姿态，已撤回')
+            _require(error<=1e-5,f'零增量安装改变原生姿态（{error:g}），已撤回')
         for group in groups.values():
             group['helper_rest']={name:{'matrix':sig._plain(rig.data.bones[name].matrix_local),'length':rig.data.bones[name].length} for name in group['helpers']}
             group['driver_mapping']={}
@@ -174,13 +184,15 @@ def install(rig):
                 f=next(f for f in rig.animation_data.drivers if f.data_path==path)
                 group['driver_mapping'][target]={'curve':sig._rna(f),'points':[sig._rna(p) for p in f.keyframe_points],
                                                'samples':[list(p.co) for p in f.sampled_points]}
-        d={'schema':SCHEMA,'groups':groups,'bakes':[],'zero_install_error':error};_save(rig,d)
-        declaration=panel.read_layout(rig)
-        for group in groups.values():
-            for field in ('property_enabled','property_mix'):
-                name=group[field];declaration['rows'].append({'id':uuid.uuid4().hex,'kind':'property','group':'胸臀弹性动态',
-                    'label':name,'visible':True,'bone':'骨架设置','property':name})
-        panel._save(rig,declaration)
+        d={'schema':SCHEMA,'groups':groups,'bakes':[],'zero_install_error':error,
+           'settings_control':settings.name};_save(rig,d)
+        if pose.RIG_KEY in rig:
+            declaration=panel.read_layout(rig)
+            for group in groups.values():
+                for field in ('property_enabled','property_mix'):
+                    name=group[field];declaration['rows'].append({'id':uuid.uuid4().hex,'kind':'property','group':'胸臀弹性动态',
+                        'label':name,'visible':True,'bone':settings.name,'property':name})
+            panel._save(rig,declaration)
         return inspect(rig)
     except Exception:
         for group in groups.values():
@@ -251,10 +263,11 @@ def _signature(rig,d):
         return values
     helpers={n for g in d['groups'].values() for n in g['helpers']}
     propnames={n for g in d['groups'].values() for n in (g['property_enabled'],g['property_mix'])}
+    settings_name = secondary_dynamics.control(rig, d.get('settings_control')).name
     bones=[]
     for pb in rig.pose.bones:
         if pb.name in helpers:continue
-        props={k:v for k,v in pb.items() if not (pb.name=='骨架设置' and k in propnames)}
+        props={k:v for k,v in pb.items() if not (pb.name==settings_name and k in propnames)}
         for k in tuple(props):
             if animation._property_path(pb,k) in paths:props[k]=None
         bones.append([pb.name,pb.parent.name if pb.parent else None,sig._plain(pb.bone.matrix_local),pb.bone.use_deform,
@@ -419,7 +432,7 @@ class Clip:
 
 def capture(rig,*,start,end,preroll=12,substeps=4,max_samples=10000):
     global _BUSY
-    d=_record(rig);pose._metadata(rig);_base_binding(rig,d)
+    d=_record(rig);_base_binding(rig,d)
     _require(all(type(v) is int for v in (start,end,preroll,substeps,max_samples)) and -100000<=start<end<=100000
         and 0<=preroll<=10000 and substeps in {1,2,4,8} and (end-start+preroll)*substeps+1<=max_samples<=100000,
         '使用有界整数帧域/预卷、1/2/4/8子步和明确样本预算')

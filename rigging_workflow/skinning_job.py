@@ -5,6 +5,7 @@ No Blender data is accessed off the main thread. The child only receives arrays,
 bone segments and a copied solver; it cannot replay a scene or commit weights.
 """
 import hashlib
+from io import BytesIO
 import json
 import math
 import os
@@ -17,9 +18,23 @@ import uuid
 import bpy
 import numpy as np
 
-from . import corrective_authoring as signatures, generation, skinning
+from . import corrective_authoring as signatures, generation, skeleton_gate, skinning
 
 _RUNNING = set()
+
+
+def _copy_volume_runtime(module_root, runtime):
+    from .volume.cuda_backend import artifact_files
+
+    source = module_root / 'volume'
+    destination = runtime / 'volume'
+    files = []
+    for path in [*sorted(source.glob('*.py')), *artifact_files()]:
+        target = destination / path.relative_to(source)
+        target.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(path, target)
+        files.append(target)
+    return files
 
 
 def _watchdog():
@@ -92,12 +107,8 @@ def _source_check(source, rig, proxy, names):
         matrix = np.asarray(obj.matrix_world, dtype=float)
         _require(np.isfinite(matrix).all() and abs(np.linalg.det(matrix[:3, :3])) > 1e-12,
                  '对象世界变换必须有限且可逆')
-    try:
-        metadata = json.loads(rig.get(generation.RIG_KEY, ''))
-    except (TypeError, ValueError) as exc:
-        raise ValueError('请选择本流程生成的C94骨架') from exc
-    _require(isinstance(metadata, dict) and metadata.get('schema') == 'c94.generated.v1'
-             and isinstance(metadata.get('deforms'), list), '生成骨架身份记录不完整')
+    from . import rig_identity
+    metadata = rig_identity.read(rig)
     _require(rig.data.pose_position == 'POSE', '先返回骨架姿态显示，再恢复校准中立状态')
     allowed = set(metadata['deforms'])
     _require(isinstance(names, list) and names and all(isinstance(n, str) and n in allowed for n in names),
@@ -106,6 +117,14 @@ def _source_check(source, rig, proxy, names):
     scale = float(bpy.context.scene.unit_settings.scale_length)
     _require(math.isfinite(scale) and scale > 0, '场景单位比例必须为有限正数')
     from . import neutral_binding
+    if metadata.get('schema') == 'rigging.native-skeleton.v1':
+        from . import native_skeleton
+        native_skeleton.check_current(rig, metadata, names, scale)
+        return scale
+    if metadata.get('schema') == 'rigging.modular.generated.v1':
+        from . import modular_neutral
+        modular_neutral.check_current(rig, metadata, names, scale)
+        return scale
     if neutral_binding.KEY in metadata:
         neutral_binding.check_current(rig, metadata, names, scale)
         return scale
@@ -141,10 +160,14 @@ def _points(obj):
 
 class Job:
     """A live session owns process and real IDs; disk paths grant no write authority."""
-    def __init__(self, source, rig, proxy, names, settings, root):
+    def __init__(self, source, rig, proxy, names, settings, root, *, sample_proxy=False, input_guard=None, sample_proxy_indices=None):
+        self._gate_token = skeleton_gate.require_pass(rig, operation='skinning_job.Job')
         self.source, self.rig, self.proxy = source, rig, proxy
         self.session_scene = bpy.context.scene
         self._source_mesh, self._rig_data, self._proxy_mesh = source.data, rig.data, proxy.data
+        _require(type(sample_proxy) is bool and (input_guard is None or callable(input_guard)),
+                 '内部采样模式与输入保护器无效')
+        self._sample_proxy, self._input_guard = sample_proxy, input_guard
         self.bone_names = list(names)
         self.scale = _source_check(source, rig, proxy, self.bone_names)
         self._before = signatures._state(source, rig)
@@ -162,7 +185,14 @@ class Job:
         # Validate the same public settings/schema before launching, once at this boundary.
         from .volume.contract import normalize
         vertices, triangles = skinning.mesh_arrays(proxy)
-        samples, _ = skinning.mesh_arrays(source)
+        if sample_proxy_indices is not None:
+            ids=np.asarray(sample_proxy_indices)
+            _require(sample_proxy and ids.ndim==1 and ids.dtype.kind in 'iu' and len(ids)>0
+                     and len(np.unique(ids))==len(ids) and ids.min()>=0 and ids.max()<len(vertices),
+                     '代理采样点索引必须明确、唯一并属于冻结代理')
+        else: ids=None
+        samples, _ = skinning.mesh_arrays(source) if not sample_proxy else (vertices.copy(), None)
+        if ids is not None: samples=samples[ids]
         vertices, samples = vertices * self.scale, samples * self.scale
         segments = skinning.bone_segments(rig, self.bone_names)
         for segment in segments:
@@ -175,22 +205,27 @@ class Job:
         (runtime / 'volume').mkdir(parents=True)
         (runtime / '__init__.py').write_text('', encoding='utf8')
         module_root = Path(__file__).resolve().parent
-        files = []
-        for path in sorted((module_root / 'volume').glob('*.py')):
-            destination = runtime / 'volume' / path.name
-            shutil.copyfile(path, destination)
-            files.append(destination)
+        files = _copy_volume_runtime(module_root, runtime)
         worker = self.directory / 'worker.py'
         shutil.copyfile(module_root / 'skinning_job_worker.py', worker)
         files.extend((worker, runtime / '__init__.py'))
+        collection_copy = runtime / 'skeleton_collection.py'
+        shutil.copyfile(module_root / 'skeleton_collection.py', collection_copy)
+        files.append(collection_copy)
+        channel_copy = runtime / 'worker_channel.py'
+        shutil.copyfile(module_root / 'worker_channel.py', channel_copy)
+        files.append(channel_copy)
         snapshot = self.directory / 'input.npz'
         np.savez_compressed(snapshot, vertices=vertices, triangles=triangles, points=samples)
         files.append(snapshot)
         manifest = {'schema': 'c94.single-domain-volume-job.v1', 'bones': segments, 'settings': settings,
             'coordinates': 'meters', 'scene_scale_length': self.scale,
-            'source_vertex_count': len(samples), 'bone_names': self.bone_names,
+            'source_vertex_count': len(source.data.vertices), 'sample_vertex_count': len(samples),
+            'sample_domain': 'proxy_surface' if sample_proxy else 'production_surface', 'bone_names': self.bone_names,
+            'proxy_sample_indices':ids.tolist() if ids is not None else None,
             'files': [{'relative_path': str(p.relative_to(self.directory)),
                        'sha256': hashlib.sha256(p.read_bytes()).hexdigest()} for p in files]}
+        manifest['quality_gate'] = skeleton_gate.worker_proof(rig, self._gate_token, manifest)
         (self.directory / 'input.json').write_text(json.dumps(manifest, ensure_ascii=False, allow_nan=False, indent=2), encoding='utf8')
         self._input_hash = hashlib.sha256((self.directory / 'input.json').read_bytes()).hexdigest()
         (self.directory / 'source-state.json').write_text(json.dumps({'source': source.name, 'rig': rig.name,
@@ -198,10 +233,11 @@ class Job:
             ensure_ascii=False, allow_nan=False, indent=2), encoding='utf8')
         _require(signatures._state(source, rig) == self._before and _proxy_state(proxy) == self._proxy_before,
                  '捕获期间输入发生变化；未启动后台任务')
+        if self._input_guard is not None: self._input_guard()
         with (self.directory / 'worker.log').open('wb') as log:
-            self._process = subprocess.Popen([bpy.app.binary_path, '--background', '--factory-startup',
+            self._process = skeleton_gate.spawn_worker(rig, self._gate_token, manifest, [bpy.app.binary_path, '--background', '--factory-startup',
                 '--disable-autoexec', '--offline-mode', '--threads', '2', '--python-exit-code', '1',
-                '--python', str(worker), '--', str(self.directory)], stdin=subprocess.DEVNULL,
+                '--python', str(worker), '--', str(self.directory)],
                 stdout=log, stderr=subprocess.STDOUT, shell=False,
                 creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
         self._deadline = time.monotonic() + float(settings.get('max_seconds', 60)) + 30
@@ -253,12 +289,14 @@ class Job:
             raise RuntimeError('无法写入取消标记；已请求停止本次自有后台进程，监控保留至退出') from exc
 
     def _check_inputs(self):
+        skeleton_gate.check_pass(self.rig, self._gate_token, operation='skinning_job.Job')
         _require(bpy.context.scene == self.session_scene and self.source.data == self._source_mesh
                  and self.rig.data == self._rig_data and self.proxy.data == self._proxy_mesh,
                  '源对象或场景身份已改变；结果不再可提交')
         _source_check(self.source, self.rig, self.proxy, self.bone_names)
         _require(signatures._state(self.source, self.rig) == self._before
                  and _proxy_state(self.proxy) == self._proxy_before, '源网格、骨架、代理、帧或单位已改变；请重新求解')
+        if self._input_guard is not None: self._input_guard()
 
     def _bind_report(self, state):
         return {'schema': 'c94.single-domain-volume-bind.v1', 'job_directory': str(self.directory),
@@ -266,25 +304,50 @@ class Job:
                 'statistics': state['statistics'], 'warnings': state['warnings'],
                 'scope': 'one explicit closed proxy domain; independent new Mesh; visual review pending'}
 
-    def apply(self, *, name):
+    def _read_result_weights(self, state):
+        """Accept the exact result buffer and recheck the frozen request inputs."""
+        raw = (self.directory / 'input.json').read_bytes()
+        _require(hashlib.sha256(raw).hexdigest() == self._input_hash,
+                 '本次求解输入记录已改变')
+        manifest = json.loads(raw)
+        for item in manifest['files']:
+            frozen = self.directory / item['relative_path']
+            _require(hashlib.sha256(frozen.read_bytes()).hexdigest() == item['sha256'],
+                     '冻结数组或求解源码已改变；不能提交旧结果')
+        result_bytes = (self.directory / 'weights.npz').read_bytes()
+        _require(state.get('bone_names') == self.bone_names and
+                 hashlib.sha256(result_bytes).hexdigest() == state.get('weights_sha256'),
+                 '结果身份或完整性不匹配')
+        with np.load(BytesIO(result_bytes), allow_pickle=False) as arrays:
+            return arrays['weights'].copy()
+
+    def apply(self, *, name, _postprocess=None):
+        skeleton_gate.check_pass(self.rig, self._gate_token, operation='skinning_job.Job')
         state = self.status()
         _require(state['status'] == 'succeeded' and not self._cancelled, '需要已成功且未取消的完整求解结果')
         _require(isinstance(name, str) and name.strip() and name not in bpy.data.objects,
                  '请提供尚未使用的候选名称')
         self._check_inputs()
-        _require(hashlib.sha256((self.directory / 'input.json').read_bytes()).hexdigest() == self._input_hash,
-                 '本次求解输入记录已改变')
-        path = self.directory / 'weights.npz'
-        _require(state.get('bone_names') == self.bone_names and
-                 hashlib.sha256(path.read_bytes()).hexdigest() == state.get('weights_sha256'), '结果身份或完整性不匹配')
-        with np.load(path, allow_pickle=False) as arrays:
-            weights = arrays['weights'].copy()
+        _require(not self._sample_proxy or callable(_postprocess),
+                 '代理表面采样必须完成显式生产顶点回写，不能直接应用代理点行')
+        weights = self._read_result_weights(state)
         before_points = _points(self.source)
         candidate = None
         try:
             report = self._bind_report(state)
-            candidate = skinning.create_bound_copy(self.source, self.rig, weights, self.bone_names,
-                                                    name=name, report=report)
+            names, method = list(self.bone_names), 'volume_diffusion'
+            postprocessed = False
+            if _postprocess is not None:
+                _require(callable(_postprocess), '内部候选处理器必须为明确可信的调用')
+                transformed = _postprocess(weights.copy(), list(names), dict(report))
+                _require(isinstance(transformed, dict) and set(transformed) == {'weights', 'bone_names', 'report', 'method'},
+                         '内部候选处理器必须返回完整权重、骨列表、报告与方法')
+                weights, names, report, method = (transformed[key] for key in ('weights', 'bone_names', 'report', 'method'))
+                _require(isinstance(report, dict) and isinstance(method, str) and bool(method), '内部候选报告或方法无效')
+                self._check_inputs()
+                postprocessed = True
+            candidate = skinning.create_bound_copy(self.source, self.rig, weights, names,
+                                                    name=name, report=report, method=method)
             bpy.context.view_layer.update()
             after_points = _points(candidate)
             _require(before_points.shape == after_points.shape, '候选求值拓扑与生产源不同')
@@ -293,6 +356,9 @@ class Job:
             self._check_inputs()
             receipt = {'ok': True, 'candidate': candidate.name, 'neutral_error_meters': error,
                        'source_unchanged': True, 'weights_sha256': state['weights_sha256']}
+            if postprocessed:
+                receipt.update(final_bone_names=names, method=method,
+                    final_weights_sha256=hashlib.sha256(np.asarray(weights, dtype='<f4').tobytes()).hexdigest())
             (self.directory / 'apply-receipt.json').write_text(json.dumps(receipt, ensure_ascii=False, indent=2), encoding='utf8')
         except Exception:
             if candidate is not None:
@@ -319,8 +385,11 @@ def _monitor(job):
     return job
 
 
-def start(source, rig, proxy, bone_names, settings, *, jobs_directory):
+def start(source, rig, proxy, bone_names, settings, *, jobs_directory, _sample_proxy=False, _input_guard=None,
+          _sample_proxy_indices=None):
+    skeleton_gate.require_pass(rig, operation='skinning_job.start')
     root = Path(jobs_directory).expanduser()
     _require(root.is_absolute(), '后台任务目录必须为明确绝对路径')
     root.mkdir(parents=True, exist_ok=True)
-    return _monitor(Job(source, rig, proxy, bone_names, settings, root.resolve()))
+    return _monitor(Job(source, rig, proxy, bone_names, settings, root.resolve(),
+                        sample_proxy=_sample_proxy, input_guard=_input_guard, sample_proxy_indices=_sample_proxy_indices))

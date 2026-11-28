@@ -18,7 +18,7 @@ class C94FC_Member(bpy.types.PropertyGroup):
 class C94FC_Options(bpy.types.PropertyGroup):
     source: PointerProperty(name='源面部网格', type=bpy.types.Object,
                             poll=lambda self, obj: obj.type == 'MESH')
-    rig: PointerProperty(name='明确C94骨架', type=bpy.types.Object,
+    rig: PointerProperty(name='表情采样骨架', type=bpy.types.Object,
                          poll=lambda self, obj: obj.type == 'ARMATURE')
     sample_name: StringProperty(name='表情名称', default='闭眼')
     attachments: CollectionProperty(type=C94FC_Member)
@@ -36,7 +36,7 @@ def _session(context):
 class C94FC_OT_AddMembers(bpy.types.Operator):
     bl_idname = 'c94_workflow.face_capture_add_members'
     bl_label = '添加所选附件网格'
-    bl_description = '将所选Mesh加入同步采样列表；皮肤与附件生成同名表情Key'
+    bl_description = '将所选网格加入同步采样列表；皮肤与附件生成同名表情形态键'
 
     def execute(self, context):
         options = getattr(context.scene, OPTIONS)
@@ -77,7 +77,7 @@ class C94FC_OT_RemoveMember(bpy.types.Operator):
 
 class C94FC_OT_Begin(bpy.types.Operator):
     bl_idname = 'c94_workflow.face_capture_begin'
-    bl_label = '开始面部Key捕获'
+    bl_label = '开始面部形态键捕获'
     bl_description = '从已记录、已校准的面部中立姿态开始；明确选择源网格与骨架'
 
     def execute(self, context):
@@ -103,7 +103,7 @@ class C94FC_OT_Begin(bpy.types.Operator):
 class C94FC_OT_Sample(bpy.types.Operator):
     bl_idname = 'c94_workflow.face_capture_sample'
     bl_label = '采样当前骨控表情'
-    bl_description = '记录当前骨控表情；开始前请关闭已有表情Key，原网格保持'
+    bl_description = '记录当前骨控表情；开始前请关闭已有表情形态键，原网格保持'
 
     def execute(self, context):
         options = getattr(context.scene, OPTIONS)
@@ -119,8 +119,8 @@ class C94FC_OT_Sample(bpy.types.Operator):
 
 class C94FC_OT_Create(bpy.types.Operator):
     bl_idname = 'c94_workflow.face_capture_create'
-    bl_label = '创建整组独立Key候选'
-    bl_description = '临时恢复已声明面部中立并逐Key原生重放；成功或失败均恢复操作者面部输入'
+    bl_label = '创建整组独立形态键候选'
+    bl_description = '临时恢复已声明面部中立并逐形态键原生重放；成功或失败均恢复操作者面部输入'
     bl_options = {'REGISTER','UNDO'}
 
     def execute(self, context):
@@ -144,7 +144,7 @@ class C94FC_OT_Create(bpy.types.Operator):
 
 class C94FC_OT_BindCandidates(bpy.types.Operator):
     bl_idname='c94_workflow.face_capture_bind_candidates'
-    bl_label='复位到Key中立并建立候选控制'
+    bl_label='复位到形态键中立并建立候选控制'
     bl_description='明确复位面部输入后，给本次完整候选组建立同步控制；已有控制/动画不覆盖'
     bl_options={'REGISTER','UNDO'}
     def execute(self,context):
@@ -201,7 +201,7 @@ class C94FC_OT_Cancel(bpy.types.Operator):
 
 class C94FC_PT_Capture(bpy.types.Panel):
     bl_idname = 'C94FC_PT_capture'
-    bl_label = '面部骨控姿态→Key候选'
+    bl_label = '面部骨控姿态→形态键候选'
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = '面部'
@@ -233,7 +233,7 @@ class C94FC_PT_Capture(bpy.types.Panel):
                 layout.operator('c94_workflow.face_capture_cancel')
                 return
             layout.label(text='当前源：' + source_name)
-            layout.label(text='Key重放中立模式：' + session.members[0]._neutral_mode)
+            layout.label(text='形态键重放中立模式：' + session.members[0]._neutral_mode)
             layout.label(text='已采样：' + str(len(session._samples)))
             for name in session._samples:
                 layout.label(text=name)
@@ -253,8 +253,8 @@ class C94FC_PT_Capture(bpy.types.Panel):
             else:box.label(text='已建立：'+options.bound_hub.name)
         layout.label(text='请先创建候选，再保存或换文件')
         layout.label(text='创建后请检查表情与附件效果')
-        layout.label(text='组合Key效果须另行检查')
-        layout.label(text='静止成员保留同名零位移Key')
+        layout.label(text='组合形态键效果须另行检查')
+        layout.label(text='静止成员保留同名零位移形态键')
 
 
 _CLASSES = (C94FC_Member, C94FC_Options, C94FC_OT_AddMembers, C94FC_OT_RemoveMember, C94FC_OT_Begin, C94FC_OT_Sample,C94FC_OT_BindCandidates,

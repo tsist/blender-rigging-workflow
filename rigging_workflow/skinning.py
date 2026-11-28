@@ -5,7 +5,7 @@ import json
 import bpy
 import numpy as np
 
-from . import generation, volume
+from . import generation, skeleton_gate, volume
 from .skinning_fields import combine_partitions, transfer_surface_field
 
 
@@ -34,14 +34,14 @@ def topology_fingerprint(mesh):
 
 
 def bone_segments(rig, names):
-    if not rig.get(generation.RIG_KEY):
-        raise ValueError('请选择本流程生成的角色骨架')
+    from . import rig_identity
+    metadata = rig_identity.read(rig)
     if not names or len(set(names)) != len(names):
         raise ValueError('需要明确且无重复的蒙皮骨组')
     result = []
     for name in names:
         bone = rig.data.bones.get(name)
-        if bone is None or not bone.use_deform:
+        if bone is None or not bone.use_deform or name not in metadata['deforms']:
             raise ValueError('求解骨不是该角色的最终蒙皮输出：' + name)
         result.append({'name': name, 'head': list(rig.matrix_world @ bone.head_local),
                        'tail': list(rig.matrix_world @ bone.tail_local)})
@@ -50,6 +50,7 @@ def bone_segments(rig, names):
 
 def solve_partition(rig, proxy, bone_names, settings, *, progress=None, cancel_check=None, sample_points=None):
     """Compute a complete array candidate; never write a partial Blender group."""
+    skeleton_gate.require_pass(rig, operation='skinning.solve_partition')
     vertices, triangles = mesh_arrays(proxy)
     source = {'id': proxy.name, 'vertices': vertices, 'triangles': triangles}
     return volume.solve([source], bone_segments(rig, bone_names), settings,
@@ -61,6 +62,7 @@ def solve_partition(rig, proxy, bone_names, settings, *, progress=None, cancel_c
 
 def create_bound_copy(target, rig, weights, bone_names, *, name, report, method='volume_diffusion'):
     """Commit a full new binding to a separate Mesh, preserving production topology."""
+    skeleton_gate.require_pass(rig, operation='skinning.create_bound_copy')
     if bpy.context.mode != 'OBJECT' or target.type != 'MESH' or target.library:
         raise ValueError('新绑定需要对象模式下的本地生产网格')
     if target.vertex_groups or target.parent or target.constraints or target.animation_data or target.data.animation_data:

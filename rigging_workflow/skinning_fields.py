@@ -43,7 +43,8 @@ def combine_partitions(vertex_count, bone_names, partitions):
             'blend_sum': total, 'bone_names': list(bone_names)}
 
 
-def surface_projection(points, vertices, triangles, *, max_distance, cancel_check=None, progress=None):
+def surface_projection(points, vertices, triangles, *, max_distance, cancel_check=None, progress=None,
+                       components=None):
     """Return bounded nearest-triangle geometry, without inventing weights."""
     points = np.asarray(points, dtype=float)
     vertices = np.asarray(vertices, dtype=float)
@@ -55,20 +56,51 @@ def surface_projection(points, vertices, triangles, *, max_distance, cancel_chec
             or not np.isfinite(max_distance) or max_distance <= 0
             or triangles.min() < 0 or triangles.max() >= len(vertices)):
         raise ValueError('生产拓扑采样输入无效')
-    bvh = BVHTree.FromPolygons([Vector(v) for v in vertices], triangles.tolist(), all_triangles=True)
+    tree = BVHTree.FromPolygons([Vector(v) for v in vertices], triangles.tolist(), all_triangles=True)
+    if components is not None:
+        point_components, vertex_components = (np.asarray(labels) for labels in components)
+        if (point_components.shape != (len(points),) or vertex_components.shape != (len(vertices),)
+                or point_components.dtype.kind not in 'iu' or vertex_components.dtype.kind not in 'iu'
+                or (point_components < 0).any() or (vertex_components < 0).any()):
+            raise ValueError('生产拓扑需要有效的RAW点与采样面壳体编号')
+        triangle_components = vertex_components[triangles]
+        if not (triangle_components == triangle_components[:, :1]).all():
+            raise ValueError('采样三角跨越真实RAW壳体')
+        triangle_components = triangle_components[:, 0]
+        absent = np.setdiff1d(point_components, triangle_components)
+        if len(absent):
+            raise ValueError(f'生产壳体{absent.tolist()}没有完整覆盖的同壳采样三角')
+        trees = {}
     vertex_ids = np.empty((len(points), 3), dtype=np.int64)
     barycentrics = np.empty((len(points), 3), dtype=np.float64)
     distances = []
+    shell_reassigned = 0
     for index, point in enumerate(points):
         if index % 128 == 0:
             if cancel_check is not None and cancel_check():
                 raise VolumeError('CANCELLED', 'Surface transfer cancelled; no candidate accepted')
             if progress is not None:
                 progress('surface_transfer', done=index, total=len(points))
-        location, _, triangle, distance = bvh.find_nearest(Vector(point), float(max_distance))
+        query = Vector(point)
+        location, _, triangle, distance = tree.find_nearest(query, float(max_distance))
+        shell = triangles
+        if location is not None and components is not None and triangle_components[triangle] != point_components[index]:
+            # Preserve the old exact triangle and barycentrics for every
+            # already-correct query, including equal-distance BVH ties.
+            component = point_components[index]
+            if component not in trees:
+                allowed = triangles[triangle_components == component]
+                used, inverse = np.unique(allowed, return_inverse=True)
+                local = inverse.reshape(allowed.shape)
+                bvh = BVHTree.FromPolygons([Vector(v) for v in vertices[used]], local.tolist(), all_triangles=True)
+                trees[component] = (bvh, allowed)
+            bvh, shell = trees[component]
+            location, _, triangle, distance = bvh.find_nearest(query, float(max_distance))
+            shell_reassigned += 1
         if location is None:
-            raise ValueError(f'生产顶点{index}超出明确的表面转移距离上限{max_distance:g}（输入坐标单位）')
-        ids = triangles[triangle]
+            owner = '' if components is None else f'的RAW壳体{point_components[index]}'
+            raise ValueError(f'生产采样点{index}{owner}在{max_distance:g}距离内没有合法三角（输入坐标单位）')
+        ids = shell[triangle]
         a, b, c = vertices[ids]
         u, v, w = b - a, c - a, np.asarray(location) - a
         uu, uv, vv = u @ u, u @ v, v @ v
@@ -84,18 +116,26 @@ def surface_projection(points, vertices, triangles, *, max_distance, cancel_chec
         distances.append(float(distance))
     if progress is not None:
         progress('surface_transfer', done=len(points), total=len(points))
-    return vertex_ids, barycentrics, {'vertices': len(points), 'max_distance': max(distances, default=0),
-        'distance_bound': max_distance, 'method': 'bounded_nearest_surface_projection'}
+    report = {'vertices': len(points), 'max_distance': max(distances, default=0),
+              'distance_bound': max_distance, 'method': 'bounded_nearest_surface_projection'}
+    if components is not None:
+        report.update(method='bounded_same_source_shell_projection', shell_reassigned=shell_reassigned)
+    return vertex_ids, barycentrics, report
 
 
-def transfer_surface_field(points, vertices, triangles, weights, *, max_distance, cancel_check=None, progress=None):
+def transfer_surface_field(points, vertices, triangles, weights, *, max_distance, cancel_check=None, progress=None,
+                           projection_recorder=None, components=None):
     """Interpolate an existing volume result using bounded surface geometry."""
     weights = np.asarray(weights, dtype=float)
     if weights.ndim != 2 or len(weights) != len(vertices) or not np.isfinite(weights).all():
         raise ValueError('生产拓扑权重采样输入无效')
     ids, barycentric, report = surface_projection(points, vertices, triangles,
-        max_distance=max_distance, cancel_check=cancel_check, progress=progress)
+        max_distance=max_distance, cancel_check=cancel_check, progress=progress, components=components)
     output = np.einsum('ij,ijk->ik', barycentric, weights[ids])
     if (output < 0).any() or np.max(abs(output.sum(axis=1) - 1), initial=0) > 1e-5:
         raise ValueError('代理转移未保持有效权重场')
-    return output.astype(np.float32), {**report, 'method': 'barycentric_volume_field_transfer'}
+    if projection_recorder is not None:
+        if not callable(projection_recorder):raise ValueError('投影记录器必须为明确可信调用')
+        projection_recorder(ids,barycentric,report)
+    return output.astype(np.float32), {**report, 'method': ('barycentric_volume_field_transfer' if components is None
+                                                             else 'barycentric_same_source_shell_transfer')}

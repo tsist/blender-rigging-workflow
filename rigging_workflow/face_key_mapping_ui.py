@@ -27,7 +27,7 @@ class C94FKM_Options(bpy.types.PropertyGroup):
 
 class C94FKM_OT_Sources(bpy.types.Operator):
     bl_idname='c94_workflow.key_mapping_sources'
-    bl_label='添加所选已有Key网格'
+    bl_label='添加所选已有形态键网格'
     remove_index:IntProperty(default=-1)
     def execute(self,context):
         opts=getattr(context.scene,OPTIONS)
@@ -56,7 +56,7 @@ class C94FKM_OT_Channel(bpy.types.Operator):
 
 class C94FKM_OT_Create(bpy.types.Operator):
     bl_idname='c94_workflow.key_mapping_create'
-    bl_label='创建保留原Key的映射副本'
+    bl_label='创建保留原形态键的映射副本'
     bl_options={'REGISTER','UNDO'}
     def execute(self,context):
         opts=getattr(context.scene,OPTIONS)
@@ -67,13 +67,13 @@ class C94FKM_OT_Create(bpy.types.Operator):
                 mapping.append(dict(name=r.label,keys=[t.key for t in r.targets]))
             hub,copies=core.create(opts.rig,sources,mapping,name='已有Key表情控制_'+uuid.uuid4().hex[:8])
             getattr(context.scene,controls_ui.OPTIONS).hub=hub
-            self.report({'INFO'},'已创建'+str(len(copies))+'个独立映射副本；原Key保持，请检查副本显示与效果')
+            self.report({'INFO'},'已创建'+str(len(copies))+'个独立映射副本；原形态键保持，请检查副本显示与效果')
             return {'FINISHED'}
         except _ERRORS as exc:self.report({'ERROR'},str(exc));return {'CANCELLED'}
 
 
 class C94FKM_PT_Mapping(bpy.types.Panel):
-    bl_idname='C94FKM_PT_mapping';bl_label='已有Key显式映射（副本）'
+    bl_idname='C94FKM_PT_mapping';bl_label='映射已有形态键'
     bl_space_type='VIEW_3D';bl_region_type='UI';bl_category='面部';bl_order=5
     bl_options={'DEFAULT_CLOSED'}
     def draw(self,context):
@@ -88,8 +88,8 @@ class C94FKM_PT_Mapping(bpy.types.Panel):
                 else:box.label(text='目标没有形态键，请明确源')
         l.operator('c94_workflow.key_mapping_channel').remove_index=-1
         l.operator('c94_workflow.key_mapping_create')
-        l.label(text='逐对象选择实际Key，不按同名猜语义')
-        l.label(text='保留原名/坐标/相对关系；不覆盖旧动画/driver')
+        l.label(text='逐对象选择实际形态键，不按同名猜语义')
+        l.label(text='保留原名/坐标/相对关系；不覆盖旧动画/驱动器')
 
 
 _CLASSES=(C94FKM_Source,C94FKM_Channel,C94FKM_Options,C94FKM_OT_Sources,C94FKM_OT_Channel,C94FKM_OT_Create,C94FKM_PT_Mapping)

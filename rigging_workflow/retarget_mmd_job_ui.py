@@ -45,17 +45,17 @@ def _inherit(context):
 
 class C94MMDJOB_Options(bpy.types.PropertyGroup):
     source:PointerProperty(name='已登记MMD源',type=bpy.types.Object,poll=_armature)
-    target:PointerProperty(name='C94目标',type=bpy.types.Object,poll=_armature)
-    profile_text:PointerProperty(name='已持久profile JSON',type=bpy.types.Text)
+    target:PointerProperty(name='目标角色',type=bpy.types.Object,poll=_armature)
+    profile_text:PointerProperty(name='已持久来源配置 JSON',type=bpy.types.Text)
     mapping_json:StringProperty(name='显式映射核对',default='')
     motion:EnumProperty(name='根运动',items=(('PRESERVE','保留移动与转向',''),('IN_PLACE','原地，保留转向','')),default='PRESERVE')
-    items_json:StringProperty(name='明确clip/帧域/30fps列表JSON',default='[{"clip_id":"dance","fps":30,"start":225,"end":230}]')
+    items_json:StringProperty(name='明确片段/帧域/30fps列表JSON',default='[{"clip_id":"dance","fps":30,"start":225,"end":230}]')
     jobs_root:StringProperty(name='后台工作目录',subtype='DIR_PATH')
     max_seconds:FloatProperty(name='预算秒',default=1800,min=1,max=86400)
     threads:IntProperty(name='线程',default=2,min=1,max=8)
     selected:IntProperty(name='结果序号',default=0,min=0)
     message:StringProperty(name='状态',default='只读取已登记来源；长片在现有后台worker处理')
-    clip_summary:StringProperty(name='登记clip',default='')
+    clip_summary:StringProperty(name='登记片段',default='')
 
 class C94MMDJOB_OT_run(bpy.types.Operator):
     bl_idname='c94_workflow.retarget_mmd_background'
@@ -126,7 +126,7 @@ class C94MMDJOB_PT_panel(bpy.types.Panel):
             layout.prop(opts,'selected')
             for op,label in [('REFRESH','刷新进度'),('CANCEL','取消并保留成功'),('COLLECT','收集成功'),('PREVIEW','预览所选'),('STOP','停止并恢复'),('RELEASE','释放界面任务')]:
                 layout.operator(C94MMDJOB_OT_run.bl_idname,text=label).operation=op
-        else:layout.label(text='当前Scene已有其他预设后台任务；沿用同一队列，请先完成或释放')
+        else:layout.label(text='当前场景已有其他预设后台任务；沿用同一队列，请先完成或释放')
         layout.label(text=opts.message)
 
 def _timer():

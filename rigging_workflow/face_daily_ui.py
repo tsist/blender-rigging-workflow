@@ -421,7 +421,7 @@ class C94DAILY_OT_Reset(_DailyOperator, bpy.types.Operator):
 class C94DAILY_OT_Record(_DailyOperator, bpy.types.Operator):
     bl_idname = 'c94_workflow.face_daily_record'
     bl_label = '记录当前帧全部表情'
-    bl_description = '记录到复制的Action副本；旧Action曲线保留，不自动补前帧'
+    bl_description = '记录到复制的动作副本；旧动作曲线保留，不自动补前帧'
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
@@ -438,7 +438,7 @@ class C94DAILY_OT_Record(_DailyOperator, bpy.types.Operator):
 class C94DAILY_OT_Migrate(_DailyOperator, bpy.types.Operator):
     bl_idname = 'c94_workflow.face_daily_migrate'
     bl_label = '显式迁移面部中立身份'
-    bl_description = '旧名称记录只有唯一可证明时迁移为真实Object/Key ID；歧义拒绝'
+    bl_description = '旧名称记录只有唯一可证明时迁移为真实物体/形态键 ID；歧义拒绝'
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):

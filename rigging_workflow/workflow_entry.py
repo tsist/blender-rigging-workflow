@@ -15,11 +15,15 @@ import bpy
 import numpy as np
 from mathutils import Matrix
 
-from . import corrective_authoring as sig, generation, module_configuration
+from . import corrective_authoring as sig, generation, module_configuration, skeleton_gate
 from . import positioning, skinning, skinning_job, skinning_plan, skinning_policy
 
 SCHEMA = 'c94.workflow-entry.v1'
 KEY = 'c94_workflow_entry_v1'
+CANDIDATE_KIND = 'character_entry'
+HANDOFF_INPUTS = 'c94_entry_links_'
+CAPTURE_OPERATION = 'workflow_entry.capture_reviewed'
+APPLY_OPERATION = 'workflow_entry.apply_volume'
 
 
 class EntryError(ValueError):
@@ -92,6 +96,93 @@ def _source_state(obj):
             'mesh_props':sig._plain(dict(obj.data.items()))}
 
 
+def _durable_animation(animation):
+    if animation is None:
+        return None
+    return {key: value for key, value in animation.items() if key != 'action_id'}
+
+
+def _durable_source(obj, state=None):
+    state = dict(_source_state(obj) if state is None else state)
+    for key in ('object_id', 'mesh_id'):
+        del state[key]
+    for key in ('animation', 'mesh_animation'):
+        state[key] = _durable_animation(state[key])
+    if state['keys']:
+        state['keys'] = {**state['keys'], 'animation': _durable_animation(state['keys']['animation'])}
+    return {'object': obj.name, 'mesh': obj.data.name, 'vertices': len(obj.data.vertices),
+            'sha256': _hash(state)}
+
+
+FINISH_PART_IDENTITY = 'binding_content_v2'
+
+
+def finish_part(obj, state=None):
+    """Fingerprint the bound content while keeping job telemetry in the saved object."""
+    state = dict(_source_state(obj) if state is None else state)
+    props = dict(state['props'])
+    binding = json.loads(props.get('c94_skinning_v1', '{}'))
+    report = binding.get('report', {})
+    if report.get('schema') in {'c94.single-domain-volume-bind.v1', 'c94.multi-domain-bind.v1'}:
+        binding['report'] = {key: value for key, value in report.items()
+                             if key not in {'job_directory', 'statistics'}}
+        props['c94_skinning_v1'] = json.dumps(binding, sort_keys=True, ensure_ascii=False, allow_nan=False)
+        state['props'] = props
+    return _durable_source(obj, state)
+
+
+def volume_apply_scope(solve_scope, *, name):
+    """Scope can be reviewed with the matching solve before a live job starts."""
+    return {**solve_scope, 'name': _name(name)}
+
+
+def transfer_plan_scope(donor_apply_scope, target_part_scope, *, max_distance_meters, name,
+                        bone_names=None, donor_vertex_indices=None):
+    """Deterministic pre-reviewable scope for same-job transfer from an applied donor part."""
+    _need(isinstance(donor_apply_scope, dict) and isinstance(target_part_scope, dict),
+          'INVALID_TRANSFER_PLAN', '需要已审核的同作业供体采用范围与目标部件范围')
+    _need(donor_apply_scope.get('candidate_id') == target_part_scope.get('candidate_id'),
+          'TRANSFER_CANDIDATE_MISMATCH', '同作业转权的供体与目标必须属于同一候选')
+    _need(donor_apply_scope.get('part_index') != target_part_scope.get('part_index'),
+          'TRANSFER_SELF_DONOR', '同作业转权的供体与目标不能是同一部件')
+    _need(type(max_distance_meters) in (int, float) and math.isfinite(max_distance_meters) and max_distance_meters > 0,
+          'INVALID_TRANSFER_DISTANCE', '明确指定有限正米制转移距离')
+    if bone_names is None:
+        if 'bone_names' in donor_apply_scope:
+            derived = list(donor_apply_scope['bone_names'])
+        else:
+            derived = []
+            for dom in donor_apply_scope.get('domains', ()):
+                for bn in dom.get('bone_names', ()):
+                    if bn not in derived:
+                        derived.append(bn)
+            for row in donor_apply_scope.get('rigid', ()):
+                bn = row.get('bone_name')
+                if bn and bn not in derived:
+                    derived.append(bn)
+        bone_names = derived
+    _need(isinstance(bone_names, list) and bool(bone_names) and all(isinstance(b, str) and b.strip() for b in bone_names)
+          and len(set(bone_names)) == len(bone_names), 'INVALID_TRANSFER_BONES', '同作业转权需要明确不重复的供体形变骨范围')
+    ids = None if donor_vertex_indices is None else np.asarray(donor_vertex_indices, dtype=np.int64).tolist()
+    return {
+        'schema': 'c94.workflow-entry-transfer-plan.v1',
+        'candidate_id': target_part_scope['candidate_id'],
+        'part_index': target_part_scope['part_index'],
+        'original': target_part_scope['original'],
+        'staging': target_part_scope['staging'],
+        'vertex_interval': target_part_scope['vertex_interval'],
+        'legacy_group_names': target_part_scope['legacy_group_names'],
+        'donor_part_index': donor_apply_scope['part_index'],
+        'donor_name': donor_apply_scope['name'],
+        'donor_original': donor_apply_scope['original'],
+        'donor_staging': donor_apply_scope['staging'],
+        'max_distance_meters': float(max_distance_meters),
+        'name': _name(name),
+        'bone_names': list(bone_names),
+        'donor_vertex_indices': ids,
+    }
+
+
 def _contains_id(value):
     if isinstance(value,bpy.types.ID):return True
     if hasattr(value,'to_dict'):value=value.to_dict()
@@ -144,8 +235,10 @@ def _identity(owner):
 
 class EntryJob:
     """The live session owns a real existing volume Job, not a disk token."""
-    def __init__(self,entry,index,native,kind):
+    def __init__(self,entry,index,native,kind,gate_token,start_scope):
+        self._gate_token=gate_token
         self.entry,self.index,self.native,self.kind=entry,index,native,kind
+        self._start_scope=start_scope
         self._applied=False;self._failure=None
 
     def status(self):
@@ -160,35 +253,44 @@ class EntryJob:
         self.native.cancel()
         return self.status()
 
-    def apply(self,*,name):
+    def apply_scope(self, *, name):
         self.entry._check()
         _need(self.status()['can_apply'],'RESULT_NOT_READY','需要本会话成功且未取消的真实求解结果')
-        name=_name(name)
-        try:
-            with self.entry._step() as owned:
-                candidate=self.native.apply(name=name)
-                module_configuration._own(owned,candidate,candidate.data)
-                self.entry._restore_data(self.index,candidate,self.kind,owned_ids=owned)
-                self.entry._check()
-                self.entry._results[self.index]=candidate
-                self.entry._output_state[self.index]=_source_state(candidate)
-            self._applied=True
-            return candidate
-        except Exception as error:
-            self._failure={'code':getattr(error,'code','APPLY_FAILED'),'message':str(error)}
-            raise
+        return volume_apply_scope(self._start_scope,name=name)
+
+    def apply(self,*,name):
+        from . import candidate_state
+
+        scope=self.apply_scope(name=name)
+        with skeleton_gate._scoped_operation(self.entry.rig, operation=APPLY_OPERATION,
+                                              scope_sha256=candidate_state.scope_digest(scope)) as permit:
+            _need(permit is self._gate_token, 'PERMIT_CHANGED', '许可已变更，须重新启动求解')
+            try:
+                with self.entry._step() as owned:
+                    candidate=self.native.apply(name=name)
+                    module_configuration._own(owned,candidate,candidate.data)
+                    self.entry._restore_data(self.index,candidate,self.kind,owned_ids=owned)
+                    self.entry._check()
+                    self.entry._results[self.index]=candidate
+                    self.entry._output_state[self.index]=_source_state(candidate)
+            except Exception as error:
+                self._failure={'code':getattr(error,'code','APPLY_FAILED'),'message':str(error)}
+                raise
+        self._applied=True
+        return candidate
 
 
 class PreparedEntry:
     def __init__(self,scene,reference,template_file,configuration,objects,*,label,mode,
-                 legacy_policy,chain_record,neutral_world):
+                 legacy_policy,chain_record,neutral_world,_resume=False):
         _need(scene==bpy.context.scene and bpy.context.mode=='OBJECT','OBJECT_MODE_REQUIRED','入口需要当前Scene对象模式')
         _need(isinstance(objects,(list,tuple)) and objects and len(set(objects))==len(objects),
               'EXPLICIT_MESHES','逐项指定当前角色明确且无重复的Mesh，不扫描历史QA副本')
         _need(mode in {'AUTO','UNBOUND','EXISTING'},'ENTRY_MODE','入口模式须AUTO/UNBOUND/EXISTING')
         _need(legacy_policy=='SNAPSHOT_FRESH_REBIND','LEGACY_POLICY','此入口只做明确RAW快照重绑；旧架构局修另走维护')
         self.scene,self.reference=scene,reference;self._scene_identity=_identity(scene);self.template_file=str(Path(template_file).resolve())
-        self.configuration=module_configuration.validate(scene,reference,template_file,configuration)
+        self.configuration=(module_configuration._record(configuration) if _resume else
+                            module_configuration.validate(scene,reference,template_file,configuration))
         self.chain_record=copy.deepcopy(chain_record)
         if chain_record is not None:
             from . import accessory_chains
@@ -197,6 +299,7 @@ class PreparedEntry:
         self._sources=list(objects);self._source_names=[o.name for o in objects]
         self._state='prepared';self._owned={};self._jobs={};self._results={};self._output_state={}
         self._preserved=[];self._staging=[];self._surfaces=[];self.rig=None;self.collection=None
+        self._candidate_id=None
         self._frame=(scene.frame_current,scene.frame_subframe);self._scale=scene.unit_settings.scale_length
         self._reference_signature=positioning.reference_signature(reference)
         self._selected=[o.as_pointer() for o in bpy.context.selected_objects]
@@ -279,13 +382,14 @@ class PreparedEntry:
               'SESSION_CHANGED','帧或单位改变，请取消本会话后重新prepare')
         _need(positioning.reference_signature(self.reference)==self._reference_signature,
               'REFERENCE_CHANGED','已批准完整参考已改变')
-        module_configuration.validate(self.scene,self.reference,self.template_file,self.configuration)
         _need(all(_source_state(o)==s for o,s in zip(self._sources,self._before)),
               'SOURCE_CHANGED','原RAW几何/Key/权重/动画/对象身份改变，请重新prepare')
         _need(all((sig._rig_state(r)['contract'],_animation(r),_animation(r.data))==s for r,s in zip(self._old_rigs,self._rig_before)),
               'SOURCE_CHANGED','原骨架/动作改变；不复用过时输入')
         if self._state=='captured':
             _need(sig._rig_state(self.rig)['contract']==self._new_rig_contract,'NEW_RIG_CHANGED','新rig已改，请重做受影响求解')
+            _need(all(_source_state(obj)==state for obj,state in zip(self._staging,self._staging_before)),
+                  'STAGING_CHANGED','本次私有求解源已变更，请撤回并重新捕获')
 
     @contextmanager
     def _step(self):
@@ -310,13 +414,66 @@ class PreparedEntry:
                 _restore_selection(active_pointer,selected)
 
     def capture(self):
+        skeleton_gate.reject_legacy_capture()
+
+    def _handoff_payload(self):
+        return {
+            'reference': self.reference.name, 'reference_signature': self._reference_signature,
+            'frame': list(self._frame), 'unit_scale': self._scale, 'view_layer': bpy.context.view_layer.name,
+            'configuration': self.configuration, 'label': self.label, 'mode': self.mode,
+            'sources': [_durable_source(obj, state) for obj, state in zip(self._sources, self._before)],
+            'old_rigs': [
+                {'rig': rig.name, 'sha256': _hash([state[0], _durable_animation(state[1]),
+                                                 _durable_animation(state[2])])}
+                for rig, state in zip(self._old_rigs, self._rig_before)
+            ],
+            'neutral_world': {obj.name: sig._plain(world) for obj, world, old in
+                              zip(self._sources, self._world, self._legacy) if old['world_override']},
+            'generation': self._report['generation'],
+        }
+
+    def _prepare_candidate(self, before_review, control_sections, shoulder_landmarks):
+        from . import candidate_state, character_generation, control_layer
+
+        self._check()
+        with self._step() as owned:
+            generated = character_generation.generate(
+                self.scene, self.reference, self.template_file, self.label,
+                configuration=self.configuration, chain_record=self.chain_record, owned_ids=owned)
+            self.rig, self.collection = generated['rig'], generated['collection']
+            control_layer.build(self.rig, family='c94', sections=control_sections,
+                                action_policy='reject', owned_ids=owned)
+            if shoulder_landmarks is not None:
+                generation.install_shoulder_girdle(self.scene, self.reference, generated,
+                                                   shoulder_landmarks, owned_ids=owned)
+            if before_review is not None:
+                before_review(self.rig)
+            self._check()
+            links = {'reference': self.reference, 'collection': self.collection}
+            for index, source in enumerate(self._sources):
+                links[f'object_{index}'] = source
+                links[f'mesh_{index}'] = source.data
+            self._report.update(generation=generated['report'], rig=self.rig.name)
+            record = candidate_state.record(self.scene, self.rig, kind=CANDIDATE_KIND,
+                                            payload=self._handoff_payload())
+            self._candidate_id = record['id']
+            try:
+                self.scene[HANDOFF_INPUTS + self._candidate_id] = links
+            except Exception:
+                candidate_state.discard(self.scene,self._candidate_id)
+                raise
+            self._state = 'awaiting_review'
+        return {'rig': self.rig, 'collection': self.collection, 'sources': list(self._sources),
+                'candidate': record, 'report': self.report}
+
+    def _capture_reviewed(self):
         self._check();_need(self._state=='prepared','ALREADY_CAPTURED','会话只能捕获一次')
+        from . import candidate_state
+
+        candidate_state.require_operation(self.rig, operation=CAPTURE_OPERATION,
+                                          scope=self._capture_scope())
         try:
             with self._step() as owned:
-                from . import character_generation
-                generated=character_generation.generate(self.scene,self.reference,self.template_file,self.label,
-                    configuration=self.configuration,chain_record=self.chain_record,owned_ids=owned)
-                self.rig,self.collection=generated['rig'],generated['collection']
                 for index,source in enumerate(self._sources):
                     name=_name(f'{self.label}__输入_{index+1:02d}')
                     _need(name not in bpy.data.objects,'NAME_COLLISION','捕获输入名称已存在')
@@ -344,15 +501,28 @@ class PreparedEntry:
                     _need(not obj.data.shape_keys and not obj.vertex_groups and not obj.animation_data
                           and not obj.constraints and not obj.parent and all(m.type=='SUBSURF' for m in obj.modifiers),
                           'CAPTURE_NOT_ISOLATED','RAW求解源仍含旧绑定/作者求值')
-                self._report['generation']=generated['report']
                 self._report['rig']=self.rig.name;self._report['captured_sources']=[o.name for o in self._staging]
+                bpy.context.view_layer.update()
                 self._new_rig_contract=sig._rig_state(self.rig)['contract']
+                self._staging_before=[_source_state(obj) for obj in self._staging]
                 self._state='captured';self._check()
             return {'rig':self.rig,'collection':self.collection,'sources':list(self._staging),'report':self.report}
         except Exception:
-            self._preserved=[];self._staging=[];self.rig=None;self.collection=None
+            self._preserved=[];self._staging=[]
             self._state='prepared' if self._same_scene() else 'aborting'
             raise
+
+    def _capture_scope(self):
+        return {
+            'candidate_id': self._candidate_id,
+            'sources': [
+                {**_durable_source(obj, state), 'old_groups': old['old_groups'],
+                 'old_group_indices_in_use': sorted({group for row in old['old_weights'] for group, _ in row}),
+                 'neutral_world': sig._plain(world)}
+                for obj, state, old, world in zip(self._sources, self._before, self._legacy, self._world)
+            ],
+            'policy': 'neutral_RAW_Basis_private_staging',
+        }
 
     def _index(self,index):
         self._check();_need(self._state=='captured' and type(index)is int and 0<=index<len(self._sources),
@@ -362,10 +532,28 @@ class PreparedEntry:
             _need(self._jobs[index].status()['status'] in {'failed','cancelled'},'JOB_ACTIVE','该输入已有运行/待应用任务')
         return self._staging[index]
 
-    def start_volume(self,index,proxy,bone_names,settings,*,jobs_directory):
+    def _part_scope(self, index):
         source=self._index(index)
-        with self._step():native=skinning_job.start(source,self.rig,proxy,bone_names,settings,jobs_directory=jobs_directory)
-        job=EntryJob(self,index,native,'volume_diffusion');self._jobs[index]=job;return job
+        return {'candidate_id': self._candidate_id, 'part_index': index,
+                'original': _durable_source(self._sources[index], self._before[index]),
+                'staging': _durable_source(source,self._staging_before[index]),
+                'vertex_interval': {'start': 0, 'stop_exclusive': len(source.data.vertices)},
+                'legacy_group_names': self._legacy[index]['old_groups']}
+
+    def volume_scope(self, index, proxy, bone_names, settings):
+        return {**self._part_scope(index), 'proxy': _durable_source(proxy),
+                'bone_names': list(bone_names), 'settings': sig._plain(settings)}
+
+    def start_volume(self,index,proxy,bone_names,settings,*,jobs_directory):
+        from . import candidate_state
+
+        scope=self.volume_scope(index,proxy,bone_names,settings)
+        source=self._staging[index]
+        with (skeleton_gate._scoped_operation(self.rig, operation='workflow_entry.start_volume',
+                                              scope_sha256=candidate_state.scope_digest(scope)) as token,
+              self._step()):
+            native=skinning_job.start(source,self.rig,proxy,scope['bone_names'],scope['settings'],jobs_directory=jobs_directory)
+        job=EntryJob(self,index,native,'volume_diffusion',token,scope);self._jobs[index]=job;return job
 
     def prepare_surface(self,index,*,name):
         source=self._index(index);name=_name(name)
@@ -375,10 +563,25 @@ class PreparedEntry:
         self._surfaces.append(surface)
         return surface
 
+    def plan_scope(self,index,surface,domains,rigid,*,transfer_distance_meters=.01):
+        part = self._part_scope(index)
+        surface_identity = skinning_plan.scope_identity(self._staging[index], surface)
+        rows=[{**sig._plain(row), 'proxy': _durable_source(row['proxy'])} for row in domains]
+        rigid_rows=[{**row, 'vertex_indices': np.asarray(row['vertex_indices']).tolist()} for row in rigid]
+        return {**part, 'surface': surface_identity, 'domains': rows,
+                'rigid': sig._plain(rigid_rows), 'transfer_distance_meters': transfer_distance_meters}
+
     def start_plan(self,index,surface,domains,rigid,*,jobs_directory,transfer_distance_meters=.01):
-        source=self._index(index)
-        with self._step():native=skinning_plan.start(source,self.rig,surface,domains,rigid,jobs_directory=jobs_directory,transfer_distance_meters=transfer_distance_meters)
-        job=EntryJob(self,index,native,'explicit_multi_domain_volume');self._jobs[index]=job;return job
+        from . import candidate_state
+
+        scope=self.plan_scope(index,surface,domains,rigid,transfer_distance_meters=transfer_distance_meters)
+        source=self._staging[index]
+        with (skeleton_gate._scoped_operation(self.rig, operation='workflow_entry.start_plan',
+                                              scope_sha256=candidate_state.scope_digest(scope)) as token,
+              self._step()):
+            native=skinning_plan.start(source,self.rig,surface,domains,scope['rigid'],
+                                       jobs_directory=jobs_directory,transfer_distance_meters=transfer_distance_meters)
+        job=EntryJob(self,index,native,'explicit_multi_domain_volume',token,scope);self._jobs[index]=job;return job
 
     def _restore_data(self,index,candidate,method,*,owned_ids=None):
         staging=self._staging[index];before=skinning_job._points(staging)
@@ -436,19 +639,118 @@ class PreparedEntry:
             'method':method,'key_count':len(keys.key_blocks) if keys else 0,'legacy_group_aliases':aliases,
             'neutral_surface_error_meters':error,'old_animation':'retained on source; explicit new authoring required'})
 
+    def rigid_scope(self,index,assignments,*,name):
+        rows=[{**row, 'vertex_indices': np.asarray(row['vertex_indices']).tolist()} for row in assignments]
+        return {**self._part_scope(index), 'assignments': sig._plain(rows), 'name': _name(name)}
+
     def bind_rigid(self,index,assignments,*,name):
-        source=self._index(index);name=_name(name)
-        with self._step() as owned:
-            candidate=skinning_policy.prepare_rigid(source,self.rig,assignments).apply(name=name)
+        from . import candidate_state
+
+        scope=self.rigid_scope(index,assignments,name=name)
+        source=self._staging[index]
+        with (skeleton_gate._scoped_operation(self.rig, operation='workflow_entry.bind_rigid',
+                                              scope_sha256=candidate_state.scope_digest(scope)),
+              self._step() as owned):
+            candidate=skinning_policy.prepare_rigid(source,self.rig,scope['assignments']).apply(name=name)
             module_configuration._own(owned,candidate,candidate.data)
             self._restore_data(index,candidate,'explicit_rigid',owned_ids=owned);self._check()
             self._results[index]=candidate;self._output_state[index]=_source_state(candidate)
         return candidate
 
-    def bind_transfer(self,index,donor,*,max_distance_meters,name,bone_names=None,donor_vertex_indices=None):
-        source=self._index(index);name=_name(name)
+    def transfer_preflight(self, index, donor_index, *, max_distance_meters, donor_vertex_indices=None):
+        """Check bounded nearest-surface geometry from donor staging mesh to target staging mesh."""
+        _need(0 <= index < len(self._staging) and 0 <= donor_index < len(self._staging) and index != donor_index,
+              'INVALID_TRANSFER_PART', '同作业转权须指定不同的有效目标与供体部件索引')
+        _need(type(max_distance_meters) in (int, float) and math.isfinite(max_distance_meters) and max_distance_meters > 0,
+              'INVALID_TRANSFER_DISTANCE', '明确指定有限正米制转移距离')
+        target = self._staging[index]
+        donor = self._staging[donor_index]
+        target_pts, _ = skinning.mesh_arrays(target)
+        donor_pts, donor_tris = skinning.mesh_arrays(donor)
+        if donor_vertex_indices is not None:
+            allowed = set(skinning_policy._ids(donor_vertex_indices, len(donor_pts)).tolist())
+            keep = [i for i, tri in enumerate(donor_tris.tolist()) if set(tri) <= allowed]
+            _need(bool(keep), 'EMPTY_DONOR_SURFACE', '供体限定点域内缺少完整三角面')
+            donor_tris = donor_tris[np.asarray(keep, dtype=np.int32)]
+        dummy_field = np.ones((len(donor_pts), 1), dtype=np.float32)
+        try:
+            _, info = skinning.transfer_surface_field(
+                target_pts * self._scale, donor_pts * self._scale, donor_tris, dummy_field,
+                max_distance=float(max_distance_meters),
+            )
+        except ValueError as exc:
+            raise EntryError('TRANSFER_DISTANCE_EXCEEDED', str(exc)) from exc
+        return {
+            'ready': True,
+            'part_index': index,
+            'donor_part_index': donor_index,
+            'target_object': self._sources[index].name,
+            'donor_object': self._sources[donor_index].name,
+            'target_vertices': int(len(target_pts)),
+            'donor_triangles': int(len(donor_tris)),
+            'max_distance_meters': float(info['max_distance']),
+            'distance_bound_meters': float(max_distance_meters),
+            'method': 'bounded_nearest_surface_projection',
+        }
+
+    def transfer_scope(self,index,donor,*,max_distance_meters,name,bone_names=None,donor_vertex_indices=None):
+        scope=self._part_scope(index)
         _need(donor in self._results.values(),'DONOR_NOT_APPLIED','先应用本角色真实身体候选，再读取其现用权重场')
-        with self._step() as owned:
+        donor_index=next(i for i,obj in self._results.items() if obj==donor)
+        _need(_source_state(donor)==self._output_state[donor_index],
+              'CANDIDATE_CHANGED','曾应用的供体已经改变，请复核后重新准备')
+        if bone_names is None:
+            from . import rig_identity
+
+            connected=set(rig_identity.read(self.rig)['deforms'])
+            bone_names=[group.name for group in donor.vertex_groups if group.name in connected]
+        return {**scope, 'donor': _durable_source(donor), 'donor_part_index': donor_index,
+                'max_distance_meters': max_distance_meters, 'name': _name(name),
+                'bone_names': list(bone_names), 'donor_vertex_indices': np.asarray(donor_vertex_indices).tolist()}
+
+    def bind_transfer(self,index,donor,*,max_distance_meters,name,bone_names=None,donor_vertex_indices=None,planned_scope=None):
+        from . import candidate_state
+
+        if planned_scope is not None:
+            _need(donor in self._results.values(),'DONOR_NOT_APPLIED','先应用本角色真实身体候选，再读取其现用权重场')
+            donor_index=next(i for i,obj in self._results.items() if obj==donor)
+            _need(_source_state(donor)==self._output_state[donor_index],
+                  'CANDIDATE_CHANGED','曾应用的供体已经改变，请复核后重新准备')
+            part_scope=self._part_scope(index)
+            expected_ids=None if donor_vertex_indices is None else np.asarray(donor_vertex_indices,dtype=np.int64).tolist()
+            _need(isinstance(planned_scope,dict)
+                  and planned_scope.get('schema')=='c94.workflow-entry-transfer-plan.v1'
+                  and planned_scope.get('candidate_id')==part_scope['candidate_id']
+                  and planned_scope.get('part_index')==index
+                  and planned_scope.get('original')==part_scope['original']
+                  and planned_scope.get('staging')==part_scope['staging']
+                  and planned_scope.get('vertex_interval')==part_scope['vertex_interval']
+                  and planned_scope.get('legacy_group_names')==part_scope['legacy_group_names']
+                  and planned_scope.get('donor_part_index')==donor_index
+                  and planned_scope.get('donor_name')==donor.name
+                  and planned_scope.get('max_distance_meters')==float(max_distance_meters)
+                  and planned_scope.get('name')==_name(name)
+                  and planned_scope.get('donor_vertex_indices')==expected_ids,
+                  'TRANSFER_SCOPE_MISMATCH','实时转权供体、目标或参数与已审同作业计划不一致')
+            planned_bones=list(planned_scope['bone_names'])
+            if bone_names is not None:
+                _need(list(bone_names)==planned_bones,'TRANSFER_SCOPE_MISMATCH','指定转权骨列与已审计划不一致')
+            donor_groups={group.name for group in donor.vertex_groups}
+            active_bones=[bn for bn in planned_bones if bn in donor_groups]
+            _need(bool(active_bones),'EMPTY_DONOR_GROUPS','同作业已应用供体缺少已审形变骨组')
+            scope_digest_target=planned_scope
+            transfer_bones=active_bones
+            transfer_ids=expected_ids
+        else:
+            scope=self.transfer_scope(index,donor,max_distance_meters=max_distance_meters,name=name,
+                                      bone_names=bone_names,donor_vertex_indices=donor_vertex_indices)
+            scope_digest_target=scope
+            transfer_bones=scope['bone_names']
+            transfer_ids=scope['donor_vertex_indices']
+        source=self._staging[index]
+        with (skeleton_gate._scoped_operation(self.rig, operation='workflow_entry.bind_transfer',
+                                              scope_sha256=candidate_state.scope_digest(scope_digest_target)),
+              self._step() as owned):
             # The donor retains editable Keys, so provide a neutral keyless
             # field view with the exact already-applied RAW groups to the
             # existing transfer policy. It is temporary and never the output.
@@ -457,7 +759,7 @@ class PreparedEntry:
             field_mesh=field.data
             try:
                 candidate=skinning_policy.prepare_transfer(source,self.rig,field,max_distance_meters=max_distance_meters,
-                    bone_names=bone_names,donor_vertex_indices=donor_vertex_indices).apply(name=name)
+                    bone_names=transfer_bones,donor_vertex_indices=transfer_ids).apply(name=name)
                 module_configuration._own(owned,candidate,candidate.data)
             finally:
                 bpy.data.objects.remove(field,do_unlink=True)
@@ -480,6 +782,8 @@ class PreparedEntry:
         if not remove:return []
         allowed={o for o in owned.values() if isinstance(o,bpy.types.Collection)}
         if self._same_scene():allowed.update((self.scene,self.scene.collection))
+        if self.collection is not None:
+            allowed.add(self.collection)  # A resumed collection is a retained candidate, never owned by this live staging session.
         users=bpy.data.user_map(subset=remove)
         foreign=[(block.name,user.name) for block,owners in users.items() for user in owners if user not in remove and user not in allowed]
         retained=[]
@@ -505,10 +809,22 @@ class PreparedEntry:
         return retained
 
     def finish(self):
+        from . import candidate_state
+
+        scope=self.finish_scope()
+        candidate_state.require_operation(self.rig, operation='workflow_entry.finish', scope=scope)
+        return self._finish()
+
+    def finish_scope(self):
         self._check();_need(self._state=='captured' and len(self._results)==len(self._sources),
                             'INCOMPLETE_BINDING','所有明确输入完成真实绑定后才能finish，不发布半角色')
         _need(all(_source_state(self._results[i])==self._output_state[i] for i in self._results),
               'CANDIDATE_CHANGED','提交前候选被编辑；请显式复核并重做该绑定')
+        return {'candidate_id': self._candidate_id, 'part_identity': FINISH_PART_IDENTITY,
+                'bound_parts': [finish_part(self._results[i],self._output_state[i])
+                                for i in range(len(self._sources))]}
+
+    def _finish(self):
         remove=[]
         for obj in self._staging:
             remove.extend([obj.as_pointer(),obj.data.as_pointer()])
@@ -555,6 +871,72 @@ class PreparedEntry:
 
 def prepare(scene,reference,template_file,configuration,objects,*,label,mode='AUTO',
             legacy_policy='SNAPSHOT_FRESH_REBIND',chain_record=None,neutral_world=None):
-    """Read-only capture plan; all submit authority remains in the returned live object."""
+    """Validate inputs for a fresh C94 candidate."""
     return PreparedEntry(scene,reference,template_file,configuration,objects,label=label,mode=mode,
                          legacy_policy=legacy_policy,chain_record=chain_record,neutral_world=neutral_world)
+
+
+def prepare_candidate(scene, reference, template_file, configuration, objects, *, label, mode='AUTO',
+                      legacy_policy='SNAPSHOT_FRESH_REBIND', chain_record=None, neutral_world=None,
+                      before_review=None, control_sections=('body', 'arms', 'legs'),
+                      shoulder_landmarks=None):
+    """Generate the final unbound rig, then run an optional non-binding review hook."""
+    _need(before_review is None or callable(before_review),'REVIEW_CALLBACK','骨架审核前回调须可调用')
+    return prepare(scene,reference,template_file,configuration,objects,label=label,mode=mode,
+                   legacy_policy=legacy_policy,chain_record=chain_record,
+                   neutral_world=neutral_world)._prepare_candidate(
+                       before_review, control_sections, shoulder_landmarks)
+
+
+def _resume_candidate(scene, candidate_id):
+    from . import candidate_state
+
+    rig, record=candidate_state.resolve(scene,candidate_id,kind=CANDIDATE_KIND)
+    payload=record['payload']
+    links=scene.get(HANDOFF_INPUTS + record['id'])
+    _need(links is not None and hasattr(links,'get'),'SOURCE_LINKS','工程缺少本次候选的真实输入对象引用')
+    reference=links.get('reference')
+    collection=links.get('collection')
+    _need(isinstance(reference,bpy.types.Object) and reference.type=='ARMATURE'
+          and scene.objects.get(reference.name)==reference
+          and isinstance(collection,bpy.types.Collection) and collection.objects.get(rig.name)==rig,
+          'SOURCE_LINKS','参考骨或实际候选集合身份改变')
+    _need(json.loads(rig[generation.RIG_KEY]).get('skinning')!='workflow_entry_bound',
+          'FINISHED_ENTRY','本候选已完成角色工序，请保留正式结果并另开候选')
+    sources=[]
+    for index, item in enumerate(payload['sources']):
+        obj=links.get(f'object_{index}')
+        _need(isinstance(obj,bpy.types.Object) and obj.type=='MESH'
+              and scene.objects.get(item['object'])==obj and obj.data==links.get(f'mesh_{index}'),
+              'SOURCE_LINKS','角色源对象或原Mesh身份改变：'+item['object'])
+        sources.append(obj)
+    config=payload['configuration']
+    entry=PreparedEntry(scene,reference,config['definition']['base_template']['file'],config,
+                        sources,label=payload['label'],mode=payload['mode'],
+                        legacy_policy='SNAPSHOT_FRESH_REBIND',chain_record=None,
+                        neutral_world=payload['neutral_world'],_resume=True)
+    entry.rig,entry.collection,entry._candidate_id=rig,collection,record['id']
+    entry._report.update(generation=payload['generation'],rig=rig.name)
+    _need(entry._handoff_payload()==payload,'SOURCE_CHANGED',
+          '候选原输入、参考、帧或视图层与保存时不一致，请核对原工程')
+    return entry,record
+
+
+def inspect_candidate(scene, candidate_id):
+    """Read the saved handoff; no source copies, workers, or write permit."""
+    entry,record=_resume_candidate(scene,candidate_id)
+    return {'rig': entry.rig, 'collection': entry.collection, 'sources': list(entry._sources),
+            'candidate': record, 'report': {**entry.report, 'state': 'awaiting_review'}}
+
+
+def capture_scope(scene, candidate_id):
+    """Return the exact RAW/Basis staging scope for capture_reviewed."""
+    entry,_record=_resume_candidate(scene,candidate_id)
+    return entry._capture_scope()
+
+
+def capture_reviewed(scene, candidate_id):
+    """Open a new live binding session on the same reviewed native rig."""
+    entry,_record=_resume_candidate(scene,candidate_id)
+    entry._capture_reviewed()
+    return entry

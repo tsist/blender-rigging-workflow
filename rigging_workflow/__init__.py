@@ -5,19 +5,19 @@ import bpy
 bl_info = {
     'name': '角色绑定工作台',
     'author': 'Blender AI Project',
-    'version': (0, 40, 1),
+    'version': (0, 42, 3),
     'blender': (5, 2, 0),
-    'location': 'View3D > Sidebar > 角色工作台',
+    'location': '三维视图 > 侧栏 > R·绑定',
     'category': 'Rigging',
-    'description': '角色准备、绑定、控制、面部、辅助动态与动画重定向',
+    'description': '独立人形/四足模块、体素蒙皮、区域权重配方与原生动画',
 }
 
 _PACKAGE_REGISTERED = False
 _REGISTERED_MODULES = []
 _MODULE_ORDER = (
-    'ui', 'workspace_setup', 'positioning_ui', 'inspection_ui', 'control_panel', 'accessory_ui',
+    'ui', 'workspace_setup', 'positioning_ui', 'inspection_ui', 'control_panel', 'accessory_ui', 'modular_ui',
     'generation_ui', 'workflow_ui', 'corrective_ui', 'skinning_ui',
-    'skinning_plan_ui', 'skinning_policy_ui', 'local_skinning_ui', 'skin_parts_ui',
+    'skinning_plan_ui', 'skinning_policy_ui', 'local_skinning_ui', 'weight_repair_ui', 'skin_parts_ui',
     'face_modes_ui', 'face_daily_ui', 'face_capture_ui', 'face_pose_library_ui',
     'face_expression_controls_ui', 'face_key_mapping_ui', 'face_key_revision_ui',
     'elastic', 'elastic_ui', 'surface_dynamic', 'surface_dynamic_ui',
@@ -26,6 +26,7 @@ _MODULE_ORDER = (
     'retarget_publish_ui', 'retarget_generic_target_ui', 'retarget_profile_ui',
     'retarget_general_job_ui', 'retarget_contact_correction_ui', 'retarget_contact_job_ui',
     'retarget_contact_detection_ui', 'retarget_contact_hints', 'retarget_mmd_camera_ui',
+    'posing_rom_ui', 'three_beats_ui',
 )
 
 
@@ -58,10 +59,10 @@ def register():
         raise RuntimeError('当前绑定插件实例已注册；原实例保持，不重复注册或卸载')
     modules = [importlib.import_module('.' + name, __name__) for name in _MODULE_ORDER]
     _preflight(modules)
-    from . import workflow_navigation
+    from . import workbench_ui, workflow_navigation
     try:
         _REGISTERED_MODULES.append(workflow_navigation)
-        workflow_navigation.register()
+        workflow_navigation.register(presentation=workbench_ui)
         workflow_navigation.route_panels(modules)
         for module in modules:
             _REGISTERED_MODULES.append(module)
@@ -77,6 +78,8 @@ def register():
 
 def unregister():
     global _PACKAGE_REGISTERED
+    from . import skeleton_gate
+    skeleton_gate.close()
     errors = []
     # Only visited acquisition steps may unwind. Keep the parent workspace
     # until all child registrations are gone so partial disable can be retried.

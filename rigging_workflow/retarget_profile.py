@@ -2421,10 +2421,11 @@ def prepare_profile_adapter(source, target, mapping, *, profile, clip=None,
 
 def convert(source, target, profile, *, clip=None, source_fps=None, start=None,
             end=None, output_start=1, motion="PRESERVE", sample_step=1,
-            action_name=None, progress=None, cancelled=None):
+            action_name=None, progress=None, cancelled=None, root_rotation="HEADING"):
     """Convert through the shared ``convert_resolved`` Action/preview core."""
     source_api.armature(source)
     source_api.armature(target)
+    require(root_rotation in ("HEADING", "FULL"), "根骨旋转模式无效")
     validation = validate_profile(profile, source, target)
     require(validation["applies"],
             "profile不可应用：" + "; ".join(validation["errors"]))
@@ -2460,6 +2461,7 @@ def convert(source, target, profile, *, clip=None, source_fps=None, start=None,
             selected_start=selected_start, selected_end=selected_end,
             target_world_matrix=target_world_matrix,
             target_conversion_world=target_conversion_world)
+        prepared["adapter"].root_rotation = root_rotation
         holder["prepared"] = prepared
         return prepared["adapter"], prepared["record"]
 
@@ -2498,6 +2500,7 @@ def convert(source, target, profile, *, clip=None, source_fps=None, start=None,
     }
     report["calibration_schema"] = CALIBRATION_SCHEMA
     report["orientation_reference"] = calibration["orientation_reference"]
+    report["root_rotation"] = root_rotation
     report["translation_origin"] = translation_origin
     report["motion_scale_basis"] = calibration["motion_scale_basis"]
     report["profile_identity_sha256"] = prepared["identity"]["identity_sha256"]

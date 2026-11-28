@@ -58,10 +58,7 @@ def _profile_api():
     try:
         from . import retarget_profile as profile
     except ImportError as exc:
-        raise ValueError(
-            "当前包缺少最终revision3 retarget_profile；"
-            "Profile→C94队列拒绝，不能退回其它求解"
-        ) from exc
+        raise ValueError("当前安装缺少重定向来源配置模块，请检查绑定扩展是否完整") from exc
     return profile
 
 
@@ -179,31 +176,31 @@ class C94GENERALJOB_Options(bpy.types.PropertyGroup):
         name="后台目标范围",
         items=(
             ("GENERIC_FK", "普通FK目标", "Mixamo/CMU + 明确target_policy"),
-            ("PROFILE_C94", "Profile → C94", "纯JSON source_profile + 现有C94"),
+            ("PROFILE_C94", "来源配置 → 角色骨架", "使用来源配置文件和已有角色骨架"),
         ),
         default="GENERIC_FK",
     )
     profile_source: EnumProperty(
-        name="Profile来源",
-        description="明确本面板提交使用哪个profile来源；双来源不会静默择一",
+        name="来源配置来源",
+        description="指定本次提交使用的来源配置",
         items=(
-            ("PANEL", "Profile面板当前Text", "只读Profile面板当前Text；忽略本面板Text/路径"),
-            ("TEXT", "本面板显式Text", "使用profile_text指定的Text"),
+            ("PANEL", "来源配置面板当前文本数据块", "只读来源配置面板当前文本数据块；忽略本面板文本数据块/路径"),
+            ("TEXT", "本面板显式文本数据块", "使用所选的来源配置文本"),
             ("PATH", "本面板显式JSON路径", "使用profile_path指定的JSON文件"),
         ),
         default="PANEL",
     )
     target_policy_json: StringProperty(
         name="target_policy JSON",
-        description="显式、已确认的普通FK目标策略；不从C94失败静默回退",
+        description="使用已确认的普通 FK 骨架处理策略",
         default="",
     )
-    profile_text: StringProperty(name="Profile Text", default="", update=_profile_text_changed)
-    profile_path: StringProperty(name="Profile JSON", subtype="FILE_PATH", default="",
+    profile_text: StringProperty(name="来源配置文本数据块", default="", update=_profile_text_changed)
+    profile_path: StringProperty(name="来源配置 JSON", subtype="FILE_PATH", default="",
                                  update=_profile_path_changed)
     acknowledged: BoolProperty(
-        name="已核对目标策略/Profile范围",
-        description="明确确认这是骨骼Action或profile范围，不是控制器动画",
+        name="已核对目标策略/来源配置范围",
+        description="确认使用骨骼动作或来源配置定义的帧范围",
         default=False,
     )
     message: StringProperty(default="通用队列只复用现有后台生命周期")
@@ -325,7 +322,7 @@ class C94GENERALJOB_OT_enqueue(bpy.types.Operator):
 
 class C94GENERALJOB_PT_panel(bpy.types.Panel):
     bl_idname = "C94GENERALJOB_PT_panel"
-    bl_label = "通用目标 / Profile 后台队列"
+    bl_label = "通用目标 / 来源配置后台队列"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "动画重定向"
@@ -352,20 +349,20 @@ class C94GENERALJOB_PT_panel(bpy.types.Panel):
                 text="校验policy",
             ).operation = "VALIDATE_POLICY"
         else:
-            layout.label(text="源：Profile JSON；目标：现有C94")
+            layout.label(text="使用来源配置重定向到已有角色骨架")
             layout.prop(opts, "profile_source")
             layout.prop(opts, "profile_text")
             layout.prop(opts, "profile_path")
             layout.label(text="来源=" + opts.profile_source +
-                         "；双来源且未明确选择时会拒绝，不静默取旧Text", icon="INFO")
+                         "；双来源且未明确选择时会拒绝，不静默取旧文本数据块", icon="INFO")
             row = layout.row(align=True)
             row.operator(
                 "c94_workflow.retarget_general_job_prepare",
-                text="从Profile面板填入",
+                text="从来源配置面板填入",
             ).operation = "PROFILE_FROM_UI"
             row.operator(
                 "c94_workflow.retarget_general_job_prepare",
-                text="校验Profile",
+                text="校验来源配置",
             ).operation = "VALIDATE_PROFILE"
         job_options = _job_options(context)
         body = _body(context)
@@ -383,14 +380,14 @@ class C94GENERALJOB_PT_panel(bpy.types.Panel):
         row.enabled = session is None
         operation = "ENQUEUE_GENERIC" if opts.mode == "GENERIC_FK" else "ENQUEUE_PROFILE"
         row.operator("c94_workflow.retarget_general_job_enqueue",
-                     text="提交普通FK队列" if opts.mode == "GENERIC_FK" else "提交Profile→C94"
+                     text="提交普通FK队列" if opts.mode == "GENERIC_FK" else "用来源配置重定向到角色骨架"
                      ).operation = operation
         if session is not None:
             job_ui.draw_job_session(layout, context, session)
         if job_options.last_directory:
             layout.prop(job_options, "last_directory", text="保留的输出目录")
         layout.label(text=opts.message[:72], icon="INFO")
-        layout.label(text="结果保留为独立Action，收集后可预览")
+        layout.label(text="结果保留为独立动作，收集后可预览")
 
 
 _CLASSES = (

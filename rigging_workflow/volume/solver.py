@@ -7,6 +7,7 @@ multigrid or a GPU backend. No bpy data is written.
 """
 import math
 import time
+from itertools import product
 import numpy as np
 from .contract import VolumeError, require, normalize, Budget, array
 from .geometry import Domain, validate_closed
@@ -24,11 +25,21 @@ def _estimate(grid_cells,vertices,triangles,bones,retained_output=0,neighbor_cou
                + vertices*96 + triangles*(24*5+192))
 
 
+def _grid_layout(vertices, settings):
+    span = np.ptp(vertices, axis=0)
+    cell_size = settings['cell_size'] or float(np.max(span)) / settings['cells_longest']
+    shape = tuple(math.ceil(float(side / cell_size)) + 2 for side in span)
+    return cell_size, shape
+
+
 def _seeds(domain,bones):
     count=len(domain.centers);h=domain.h
     weights=np.zeros((count,len(bones)),dtype=np.float64)
     details=[]
     for column,bone in enumerate(bones):
+        override=domain.settings['seed_overrides'].get(bone['name'],{})
+        radius=override.get('radius_cells',domain.settings['seed_radius_cells'])*h
+        projection_bound=override.get('max_projection_cells',domain.settings['max_seed_projection_cells'])*h
         if domain.progress is not None:
             domain.progress('seeds',done=column,total=len(bones),unit='bone_columns',
                             bone=bone['name'])
@@ -38,7 +49,7 @@ def _seeds(domain,bones):
         t=np.clip((domain.centers-head)@axis/length2,0,1)
         closest=head+t[:,None]*axis
         distances=np.linalg.norm(domain.centers-closest,axis=1)
-        candidates=np.flatnonzero(distances<=domain.settings['seed_radius_cells']*h)
+        candidates=np.flatnonzero(distances<=radius)
         accepted=[];projected=[];internal=[];projected_nodes=[];rejected_crossings=0
         for number,node in enumerate(candidates):
             if number%512==0:domain.budget.check()
@@ -49,7 +60,7 @@ def _seeds(domain,bones):
                     rejected_crossings+=1;continue
                 internal.append(int(node))
             else:
-                if distance>domain.settings['max_seed_projection_cells']*h or domain.settings['max_seed_projection_cells']==0:
+                if distance>projection_bound or projection_bound==0:
                     continue
                 if inside is None:
                     if not domain.clear_segment(p,center):
@@ -69,7 +80,7 @@ def _seeds(domain,bones):
         projected_components=set(domain.labels[projected_nodes].tolist())
         require(internal_components or len(projected_components)<=1,'AMBIGUOUS_SEED_PROJECTION',
             'An external bone would project into multiple disconnected volumes; provide an explicit anatomical partition',
-            {'bone':bone['name'],'projected_components':sorted(projected_components),'projection_bound':domain.settings['max_seed_projection_cells']*h})
+            {'bone':bone['name'],'projected_components':sorted(projected_components),'projection_bound':projection_bound})
         rejected_projection_components=0
         if internal_components:
             keep=[i for i,node in enumerate(projected_nodes) if int(domain.labels[node]) in internal_components]
@@ -109,6 +120,40 @@ def _seeds(domain,bones):
     return weights,fixed
 
 
+def _csr_system(weights, free_neighbor, conductance, degree, is_boundary, safe):
+    count, bones = len(degree), weights.shape[1]
+    columns = np.concatenate((free_neighbor, np.arange(count, dtype=np.int32)[:, None]), axis=1)
+    values = np.concatenate((-conductance, degree[:, None]), axis=1)
+    columns[columns < 0] = count
+    order = np.argsort(columns, axis=1)
+    columns = np.take_along_axis(columns, order, axis=1)
+    values = np.take_along_axis(values, order, axis=1)
+    kept = columns < count
+    offsets = np.r_[0, np.cumsum(kept.sum(axis=1), dtype=np.int32)].astype(np.int32)
+    rhs = np.zeros((count, bones), dtype=np.float64)
+    for slot in range(safe.shape[1]):
+        rows = is_boundary[:, slot]
+        rhs[rows] += conductance[rows, slot, None] * weights[safe[rows, slot]]
+    return offsets, columns[kept], values[kept], rhs
+
+
+def _finish_diffusion(domain, weights, columns, invariant, method):
+    require(bool(np.isfinite(weights).all()),'INVALID_WEIGHTS','Diffusion produced nonfinite weights')
+    minimum=float(weights.min());maximum=float(weights.max())
+    numeric_tolerance=max(1e-8,domain.settings['tolerance']*10)
+    require(minimum>=-numeric_tolerance and maximum<=1+numeric_tolerance,'INVALID_WEIGHTS','Diffusion violated nonnegative bounded harmonic weights',{'minimum':minimum,'maximum':maximum})
+    partition_error=float(np.max(np.abs(weights.sum(axis=1)-1)))
+    sum_tolerance=max(1e-5,8*domain.settings['tolerance']*weights.shape[1])
+    require(partition_error<=sum_tolerance,'PARTITION_ERROR','Partition-of-unity error is too large; normalization cannot hide it',{'partition_error':partition_error,'allowed_numeric_error':sum_tolerance})
+    clamped=int(np.count_nonzero((weights<0)|(weights>1)))
+    np.clip(weights,0,1,out=weights)
+    weights/=weights.sum(axis=1)[:,None]
+    domain.stats.update(solver=method,convergence=columns,constant_field_residual=invariant,
+        raw_min_weight=minimum,raw_max_weight=maximum,pre_normalization_partition_error=partition_error,
+        numeric_partition_tolerance=sum_tolerance,roundoff_values_clamped=clamped,negative_or_nonfinite_output=0)
+    return weights
+
+
 def _diffuse(domain,weights,fixed):
     adjacent=domain.adjacent
     free=np.flatnonzero(~fixed)
@@ -131,6 +176,32 @@ def _diffuse(domain,weights,fixed):
     else:invariant=0.
     require(invariant<=1e-10,'MATRIX_INVARIANT','Weighted constant-field partition is not preserved',{'constant_field_residual':invariant})
     columns=[];bone_total=weights.shape[1]
+    domain.stats.update(unfixed_cells=len(free),compute_backend='CPU')
+    backend = domain.settings['compute_backend']
+    if backend != 'CPU' and len(free) and bone_total > 1:
+        from . import cuda_backend
+        if domain.progress is not None:
+            domain.progress('diffusion', done=0, total=bone_total, unit='bone_columns', backend='CUDA')
+        try:
+            offsets, sparse_columns, values, rhs = _csr_system(weights, free_neighbor, conductance, degree, is_boundary, safe)
+            domain.budget.check()
+            solution, diagnostics = cuda_backend.solve(offsets, sparse_columns, values, degree, rhs,
+                tolerance=domain.settings['tolerance'], max_iterations=domain.settings['max_iterations'], check=domain.budget.check)
+        except cuda_backend.CudaUnavailable as exc:
+            require(backend=='AUTO','UNAVAILABLE_RUNTIME',str(exc))
+            domain.stats['compute_backend_reason'] = str(exc)
+        else:
+            residuals, iterations = diagnostics['true_relative_residual'], diagnostics['iterations']
+            require(solution.shape == (len(free),bone_total) and len(residuals)==len(iterations)==bone_total
+                    and all(math.isfinite(value) and value<=domain.settings['tolerance'] for value in residuals),
+                    'NO_CONVERGENCE','CUDA result failed the existing per-bone true residual tolerance')
+            weights[free] = solution
+            columns = [{'bone': seed['bone'], 'iterations': step, 'relative_residual': residual}
+                       for seed, step, residual in zip(domain.stats['bone_seeds'], iterations, residuals)]
+            domain.stats.update(compute_backend='CUDA',cuda=diagnostics)
+            if domain.progress is not None:
+                domain.progress('diffusion', done=bone_total, total=bone_total, unit='bone_columns', backend='CUDA')
+            return _finish_diffusion(domain,weights,columns,invariant,'CUDA CSR Jacobi PCG with FP64 true-residual verification')
     for column in range(bone_total):
         bone_name=domain.stats['bone_seeds'][column]['bone']
         if domain.progress is not None:
@@ -204,62 +275,262 @@ def _diffuse(domain,weights,fixed):
                             bone=bone_name,bone_index=column+1,bone_total=bone_total,
                             iteration=iteration,residual=actual)
         weights[free,column]=x
-    require(bool(np.isfinite(weights).all()),'INVALID_WEIGHTS','Diffusion produced nonfinite weights')
-    minimum=float(weights.min());maximum=float(weights.max())
-    numeric_tolerance=max(1e-8,domain.settings['tolerance']*10)
-    require(minimum>=-numeric_tolerance and maximum<=1+numeric_tolerance,'INVALID_WEIGHTS','Diffusion violated nonnegative bounded harmonic weights',{'minimum':minimum,'maximum':maximum})
-    partition_error=float(np.max(np.abs(weights.sum(axis=1)-1)))
-    sum_tolerance=max(1e-5,8*domain.settings['tolerance']*weights.shape[1])
-    require(partition_error<=sum_tolerance,'PARTITION_ERROR','Partition-of-unity error is too large; normalization cannot hide it',{'partition_error':partition_error,'allowed_numeric_error':sum_tolerance})
-    clamped=int(np.count_nonzero((weights<0)|(weights>1)))
-    np.clip(weights,0,1,out=weights)
-    weights/=weights.sum(axis=1)[:,None]
-    domain.stats.update(unfixed_cells=len(free),solver=(
+    method=(
         'exact constant single-bone Dirichlet solution' if bone_total==1
-        else 'matrix-free PCG with positive degree preconditioner'),
-        convergence=columns,constant_field_residual=invariant,raw_min_weight=minimum,raw_max_weight=maximum,
-        pre_normalization_partition_error=partition_error,numeric_partition_tolerance=sum_tolerance,
-        roundoff_values_clamped=clamped,negative_or_nonfinite_output=0)
-    return weights
+        else 'matrix-free PCG with positive degree preconditioner')
+    return _finish_diffusion(domain,weights,columns,invariant,method)
+
+
+def sample_neighborhood(domain, point, radius, extent, entry_limit):
+    center = np.floor((point-domain.grid_low)/domain.h).astype(np.int64)
+    low = np.maximum(center-extent,0)
+    high = np.minimum(center+extent+1,domain.shape)
+    ids = domain.grid[low[0]:high[0],low[1]:high[1],low[2]:high[2]].reshape(-1)
+    ids = ids[ids>=0]
+    distances = np.linalg.norm(domain.centers[ids]-point,axis=1)
+    within = distances<=radius
+    ids, distances = ids[within], distances[within]
+    if not len(ids):
+        return ids, distances, 0.0
+    visible = np.asarray([domain.clear_segment(point,domain.centers[i]) for i in ids],dtype=bool)
+    if visible.any() or entry_limit == 0:
+        return ids[visible], distances[visible], 0.0
+    return _entry_neighborhood(domain, point, ids, distances, entry_limit)
+
+
+def _entry_neighborhood(domain, point, ids, distances, entry_limit):
+    # Limit exterior samples to the same nearby part of the explicit proxy.
+    # Do not permit a segment that has to exit or pass through a second shell.
+    visible = np.zeros(len(ids), dtype=bool)
+    nearest, _, nearest_face, offset = domain.bvh.find_nearest(domain.Vector(point))
+    if nearest is None or offset > entry_limit:
+        return ids[visible], distances[visible], 0.0
+    if offset <= domain.eps*3:
+        # Match the solver's existing numerical boundary band. Preserve all
+        # visibility tests from the point on the actual proxy surface.
+        visible = np.asarray([domain.clear_surface_segment(nearest, nearest_face, domain.centers[node]) for node in ids], dtype=bool)
+        return ids[visible], distances[visible], float(offset) if visible.any() else 0.0
+    if domain.inside(point) is not False:
+        return ids[visible], distances[visible], 0.0
+    local_offset = np.asarray(nearest)-point
+    nearest_component=domain.triangle_component(nearest_face)
+    entries = []
+    for index, (node, distance) in enumerate(zip(ids, distances)):
+        direction = (domain.centers[node]-point)/distance
+        if np.dot(direction, local_offset) <= 0:
+            continue
+        # Shift the cast off both endpoints as for the bone seed test.
+        shift = domain.eps*2
+        hits = domain.intersections(point+direction*shift,direction,max(0.0,float(distance)-2*shift),with_faces=True)
+        if len(hits) != 1:
+            continue
+        crossing, face = hits[0]
+        if domain.triangle_component(face) != nearest_component:
+            continue
+        entry = crossing+shift
+        if entry <= entry_limit and np.linalg.norm(entry*direction-local_offset) <= entry_limit:
+            visible[index] = True
+            entries.append(entry)
+    return ids[visible], distances[visible], max(entries,default=0.0)
+
+
+def _sample_stencil(radius_cells):
+    extent = math.ceil(radius_cells) + 1
+    r2_bound = (radius_cells + 1e-6) ** 2
+    offsets = np.asarray(
+        [(ox, oy, oz) for ox, oy, oz in product(range(-extent, extent + 1), repeat=3)
+         if max(0.0, abs(ox) - 0.5) ** 2 + max(0.0, abs(oy) - 0.5) ** 2 + max(0.0, abs(oz) - 0.5) ** 2 <= r2_bound],
+        dtype=np.int64,
+    )
+    pad = int(np.max(np.abs(offsets))) if len(offsets) else 0
+    return offsets, pad
+
+
+def _padded_grid(domain, offsets, pad):
+    sx, sy, sz = domain.shape
+    px, py, pz = sx + 4 * pad, sy + 4 * pad, sz + 4 * pad
+    padded = np.full((px, py, pz), -1, dtype=np.int32)
+    padded[2 * pad:2 * pad + sx, 2 * pad:2 * pad + sy, 2 * pad:2 * pad + sz] = domain.grid
+    flat_offsets = ((offsets[:, 0] * py + offsets[:, 1]) * pz + offsets[:, 2]).astype(np.int64)
+    return padded.reshape(-1), flat_offsets, (sx, sy, sz, py, pz)
+
+
+def _sample_neighborhoods(domain, points, radius, extent, entry_limit):
+    """Batch grid lookup and ray setup while preserving Blender's BVH tests."""
+    offsets, pad = _sample_stencil(domain.settings['sample_radius_cells'])
+    padded_flat, flat_offsets, (sx, sy, sz, py, pz) = _padded_grid(domain, offsets, pad)
+    ray, eps = domain.bvh.ray_cast, domain.eps
+    inv_h = 1.0 / domain.h
+    for first in range(0, len(points), 256):
+        domain.budget.check()
+        block = points[first:first + 256]
+        if domain.progress is not None:
+            domain.progress('sample', done=first, total=len(points), unit='vertices')
+        bins = np.floor((block - domain.grid_low) * inv_h).astype(np.int64)
+        in_box = (
+            (bins[:, 0] >= -pad) & (bins[:, 0] < sx + pad)
+            & (bins[:, 1] >= -pad) & (bins[:, 1] < sy + pad)
+            & (bins[:, 2] >= -pad) & (bins[:, 2] < sz + pad)
+        )
+        valid_rows = np.flatnonzero(in_box)
+        if len(valid_rows):
+            vb = bins[valid_rows] + (2 * pad)
+            flat_bins = (vb[:, 0] * py + vb[:, 1]) * pz + vb[:, 2]
+            grid_ids = padded_flat[flat_bins[:, None] + flat_offsets]
+            r_local, c_local = np.nonzero(grid_ids >= 0)
+            rows = valid_rows[r_local]
+            ids = grid_ids[r_local, c_local]
+            deltas = domain.centers[ids] - block[rows]
+            distances = np.linalg.norm(deltas, axis=1)
+            inside = distances <= radius
+            ids, rows, deltas, distances = ids[inside], rows[inside], deltas[inside], distances[inside]
+        else:
+            ids = np.empty(0, dtype=np.int32)
+            rows = np.empty(0, dtype=np.int64)
+            deltas = np.empty((0, 3), dtype=np.float64)
+            distances = np.empty(0, dtype=np.float64)
+        # Match clear_segment's numerical boundary and endpoint exclusions.
+        visible = distances <= eps * 4
+        checked = np.flatnonzero(~visible)
+        if len(checked):
+            directions = deltas[checked] / distances[checked, None]
+            starts = (block[rows[checked]] + directions * (eps * 2)).tolist()
+            dir_list = directions.tolist()
+            lengths = (distances[checked] - eps * 4).tolist()
+            visible[checked] = [ray(o, d_vec, ln)[0] is None for o, d_vec, ln in zip(starts, dir_list, lengths)]
+        offsets_by_point = np.r_[0, np.bincount(rows, minlength=len(block)).cumsum()]
+        for point, start, stop in zip(block, offsets_by_point, offsets_by_point[1:]):
+            region = slice(start, stop)
+            kept = visible[region]
+            if start == stop or kept.any() or entry_limit == 0:
+                yield ids[region][kept], distances[region][kept], 0.0
+            else:
+                yield _entry_neighborhood(domain, point, ids[region], distances[region], entry_limit)
 
 
 def _sample(domain,vertices,weights):
     result=np.empty((len(vertices),weights.shape[1]),dtype=np.float64)
     local=vertices-domain.world_origin
     radius=domain.settings['sample_radius_cells']*domain.h
-    extent=math.ceil(domain.settings['sample_radius_cells'])+1
-    distances=[];counts=[];uncovered=[];ambiguous=[]
-    for row,point in enumerate(local):
-        if row%128==0:
-            if domain.progress is not None:
-                domain.progress('sample',done=row,total=len(vertices),unit='vertices')
-            domain.budget.check()
-        center=np.floor((point-domain.grid_low)/domain.h).astype(np.int64)
-        low=np.maximum(center-extent,0);high=np.minimum(center+extent+1,domain.shape)
-        ids=domain.grid[low[0]:high[0],low[1]:high[1],low[2]:high[2]].reshape(-1)
-        ids=ids[ids>=0]
-        if len(ids):
-            d=np.linalg.norm(domain.centers[ids]-point,axis=1)
-            selected=d<=radius
-            ids=ids[selected];d=d[selected]
-            visible=np.asarray([domain.clear_segment(point,domain.centers[i]) for i in ids],dtype=bool)
-            ids=ids[visible];d=d[visible]
-        if not len(ids):
-            uncovered.append(row);continue
-        if len(np.unique(domain.labels[ids]))!=1:
-            ambiguous.append(row);continue
-        interpolation=1.0/np.maximum(d,domain.eps)**2
-        interpolation/=interpolation.sum()
-        result[row]=interpolation@weights[ids]
-        distances.append(float(d.min()));counts.append(len(ids))
+    entry_limit=domain.settings['max_sample_entry_cells']*domain.h
+    offsets,pad=_sample_stencil(domain.settings['sample_radius_cells'])
+    padded_flat,flat_offsets,(sx,sy,sz,py,pz)=_padded_grid(domain,offsets,pad)
+    ray,eps=domain.bvh.ray_cast,domain.eps
+    inv_h=1.0/domain.h
+    num_bones=weights.shape[1]
+    labels=domain.labels
+    min_dist_max=0.0;dist_sum=0.0;covered_total=0
+    min_neighbors=None;max_neighbors=0
+    uncovered=[];ambiguous=[];entries=[]
+    for first in range(0,len(local),512):
+        domain.budget.check()
+        block=local[first:first+512]
+        n_block=len(block)
+        if domain.progress is not None:
+            domain.progress('sample',done=first,total=len(local),unit='vertices')
+        bins=np.floor((block-domain.grid_low)*inv_h).astype(np.int64)
+        in_box=(
+            (bins[:,0]>=-pad)&(bins[:,0]<sx+pad)
+            &(bins[:,1]>=-pad)&(bins[:,1]<sy+pad)
+            &(bins[:,2]>=-pad)&(bins[:,2]<sz+pad)
+        )
+        valid_rows=np.flatnonzero(in_box)
+        if len(valid_rows):
+            vb=bins[valid_rows]+(2*pad)
+            flat_bins=(vb[:,0]*py+vb[:,1])*pz+vb[:,2]
+            grid_ids=padded_flat[flat_bins[:,None]+flat_offsets]
+            r_local,c_local=np.nonzero(grid_ids>=0)
+            rows=valid_rows[r_local]
+            ids=grid_ids[r_local,c_local]
+            deltas=domain.centers[ids]-block[rows]
+            distances=np.linalg.norm(deltas,axis=1)
+            inside=distances<=radius
+            ids,rows,deltas,distances=ids[inside],rows[inside],deltas[inside],distances[inside]
+        else:
+            ids=np.empty(0,dtype=np.int32)
+            rows=np.empty(0,dtype=np.int64)
+            deltas=np.empty((0,3),dtype=np.float64)
+            distances=np.empty(0,dtype=np.float64)
+        visible=distances<=eps*4
+        checked=np.flatnonzero(~visible)
+        if len(checked):
+            directions=deltas[checked]/distances[checked,None]
+            starts=(block[rows[checked]]+directions*(eps*2)).tolist()
+            dir_list=directions.tolist()
+            lengths=(distances[checked]-eps*4).tolist()
+            visible[checked]=[ray(o,d_vec,ln)[0] is None for o,d_vec,ln in zip(starts,dir_list,lengths)]
+        vis_rows=rows[visible]
+        vis_ids=ids[visible]
+        vis_dists=distances[visible]
+        vis_counts=np.bincount(vis_rows,minlength=n_block)
+        has_vis=vis_counts>0
+        if has_vis.any():
+            vis_labels=labels[vis_ids]
+            min_lbl=np.full(n_block,2**31-1,dtype=np.int64)
+            max_lbl=np.full(n_block,-1,dtype=np.int64)
+            np.minimum.at(min_lbl,vis_rows,vis_labels)
+            np.maximum.at(max_lbl,vis_rows,vis_labels)
+            ambig_mask=has_vis&(min_lbl!=max_lbl)
+            if ambig_mask.any():
+                ambiguous.extend((first+np.flatnonzero(ambig_mask)).tolist())
+            good_mask=has_vis&(~ambig_mask)
+            if good_mask.any():
+                inv_d2=1.0/np.maximum(vis_dists,eps)**2
+                denom=np.bincount(vis_rows,weights=inv_d2,minlength=n_block)
+                norm_w=np.where(good_mask[vis_rows],inv_d2/np.where(good_mask,denom,1.0)[vis_rows],0.0)
+                w_vis=weights[vis_ids]
+                block_out=result[first:first+n_block]
+                for col in range(num_bones):
+                    block_out[:,col]=np.bincount(vis_rows,weights=norm_w*w_vis[:,col],minlength=n_block)
+                row_min_d=np.full(n_block,np.inf,dtype=np.float64)
+                np.minimum.at(row_min_d,vis_rows,vis_dists)
+                good_dists=row_min_d[good_mask]
+                good_counts=vis_counts[good_mask]
+                dmax=float(good_dists.max())
+                if dmax>min_dist_max:min_dist_max=dmax
+                dist_sum+=float(good_dists.sum())
+                covered_total+=int(good_dists.size)
+                cmin=int(good_counts.min());cmax=int(good_counts.max())
+                min_neighbors=cmin if min_neighbors is None else min(min_neighbors,cmin)
+                if cmax>max_neighbors:max_neighbors=cmax
+        missing_rows=np.flatnonzero(~has_vis)
+        if len(missing_rows):
+            if entry_limit==0 or not len(rows):
+                uncovered.extend((first+missing_rows).tolist())
+            else:
+                offsets_by_point=np.r_[0,np.bincount(rows,minlength=n_block).cumsum()]
+                for local_row in missing_rows.tolist():
+                    st,sp=int(offsets_by_point[local_row]),int(offsets_by_point[local_row+1])
+                    if st==sp:
+                        uncovered.append(first+local_row);continue
+                    e_ids,e_d,entry=_entry_neighborhood(domain,block[local_row],ids[st:sp],distances[st:sp],entry_limit)
+                    if not len(e_ids):
+                        uncovered.append(first+local_row);continue
+                    if not np.all(labels[e_ids]==labels[e_ids[0]]):
+                        ambiguous.append(first+local_row);continue
+                    interpolation=1.0/np.maximum(e_d,eps)**2
+                    interpolation/=interpolation.sum()
+                    result[first+local_row]=interpolation@weights[e_ids]
+                    dmin=float(e_d.min())
+                    if dmin>min_dist_max:min_dist_max=dmin
+                    dist_sum+=dmin;covered_total+=1
+                    c_len=len(e_ids)
+                    min_neighbors=c_len if min_neighbors is None else min(min_neighbors,c_len)
+                    if c_len>max_neighbors:max_neighbors=c_len
+                    if entry>0:
+                        entries.append(entry)
+    uncovered.sort();ambiguous.sort()
     domain.stats.update(sample_uncovered_vertices=len(uncovered),sample_uncovered_examples=uncovered[:32],
         sample_ambiguous_vertices=len(ambiguous),sample_ambiguous_examples=ambiguous[:32],
-        sample_max_projection_distance=max(distances,default=0.),sample_mean_projection_distance=float(np.mean(distances)) if distances else None,
-        sample_min_internal_neighbors=min(counts,default=0),sample_max_internal_neighbors=max(counts,default=0),
+        sample_max_projection_distance=min_dist_max,sample_mean_projection_distance=(dist_sum/covered_total) if covered_total else None,
+        sample_min_internal_neighbors=0 if min_neighbors is None else min_neighbors,sample_max_internal_neighbors=max_neighbors,
         sample_radius=radius,sampling='bounded visible interior-cell inverse-distance interpolation; no nearest-bone fallback')
+    if entry_limit:
+        domain.stats.update(sample_entry_limit=entry_limit,sample_single_entry_vertices=len(entries),
+                            sample_max_single_entry_distance=max(entries,default=0.0))
     require(not uncovered and not ambiguous,'UNCOVERED_VERTICES','Surface sampling has uncovered/ambiguous vertices at this cell size; refine/repartition explicitly',dict(domain.stats))
     require(bool(np.isfinite(result).all()) and float(result.min())>=0,'INVALID_WEIGHTS','Sampled weights contain invalid values')
-    error=float(np.max(np.abs(result.sum(axis=1)-1)))
+    error=float(np.max(np.abs(result.sum(axis=1)-1),initial=0))
     require(error<=1e-5,'PARTITION_ERROR','Surface sampling did not preserve the constant partition field',{'sample_partition_error':error})
     result/=result.sum(axis=1)[:,None]
     domain.stats['sample_partition_error']=error
@@ -319,9 +590,7 @@ def solve(meshes,bones,settings,*,cancel_check=None,progress=None,sample_points=
             selected=[bone_rows[bone_index[name]] for name in partition['bone_names']]
             vertices=mesh['vertices'];triangles=mesh['triangles']
             phase={};active_phase=phase;stage='resource_preflight'
-            span=np.ptp(vertices,axis=0)
-            h=config['cell_size'] or float(np.max(span))/config['cells_longest']
-            shape=tuple(math.ceil(float(s/h))+2 for s in span)
+            h,shape=_grid_layout(vertices,config)
             cells=math.prod(shape);total_grid_cells+=cells
             require(total_grid_cells<=config['max_cells'],'RESOURCE_LIMIT','Total independent partition grids exceed max_cells',{'requested_total_grid_cells':total_grid_cells,'max_cells':config['max_cells']})
             estimate=_estimate(cells,len(vertices),len(triangles),len(selected),input_bytes+output_bytes+retained_debug,
@@ -376,7 +645,10 @@ def solve(meshes,bones,settings,*,cancel_check=None,progress=None,sample_points=
             projected=sum(row['projected_cells'] for row in domain.stats['bone_seeds'])
             if projected:
                 warnings.append({'mesh_id':mesh['id'],'code':'BOUNDED_SEED_PROJECTION','cells':projected,
-                                 'bound':config['max_seed_projection_cells']*h})
+                                 'bound':config['max_seed_projection_cells']*h,
+                                 **({'overridden_bounds':{name:row['max_projection_cells']*h
+                                     for name,row in config['seed_overrides'].items()}}
+                                     if config['seed_overrides'] else {})})
             if config['return_domain']:
                 domains[mesh['id']]={'centers':domain.centers+domain.world_origin,'weights':weights.copy(),
                     'components':domain.labels.copy(),'adjacent':domain.adjacent.copy(),

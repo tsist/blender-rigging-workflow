@@ -79,7 +79,7 @@ class NATIVE_MAINTENANCE_Options(bpy.types.PropertyGroup):
     row_label:StringProperty(name='显示标签',default='原生控制')
     row_group:StringProperty(name='显示分组',default='原骨架控件')
     control_property:StringProperty(name='原生自定义属性')
-    key_object:PointerProperty(name='实际Key对象',type=bpy.types.Object,poll=_mesh)
+    key_object:PointerProperty(name='实际形态键对象',type=bpy.types.Object,poll=_mesh)
     key_name:StringProperty(name='实际形态键')
     edit_kind:EnumProperty(name='局部修复类型',items=(('CONSTRAINT','约束','只改明确约束字段'),
         ('BONE','非连接骨位','生成独立待复核骨位候选'),('WEIGHT','选中点权重转移','只改明确点和两组')))
@@ -124,7 +124,7 @@ class NATIVE_MAINTENANCE_OT_Action(bpy.types.Operator):
                 rig,objects=_source(options,context)
                 if self.action=='INSPECT':
                     report=core.inspect(rig,objects);_summary(options,report)
-                    options.summary='原架构已检查；控制含义按实际映射，不生成C94参考骨'
+                    options.summary='原骨架已检查，按实际控制器映射继续操作'
                 else:
                     if context.mode!='OBJECT':raise ValueError('建立副本前请退出姿态模式')
                     deps=list(options.dependency_collection.all_objects) if options.dependency_collection else []
@@ -164,8 +164,9 @@ class NATIVE_MAINTENANCE_OT_Action(bpy.types.Operator):
             elif self.action=='READ_VERTICES':
                 obj=options.weight_object
                 if not obj:raise ValueError('选择当前维护副本中的明确皮肤')
-                options.indices_json=json.dumps([v.index for v in obj.data.vertices if v.select])
-                options.summary='已读取原生已选点索引；先确认范围再生成候选'
+                indices = [v.index for v in obj.data.vertices if v.select and not v.hide]
+                options.indices_json = json.dumps(indices)
+                options.summary = '已读取%d个可见选中点；先确认范围再生成候选' % len(indices)
             elif self.action=='REPAIR':
                 if context.mode!='OBJECT':raise ValueError('局部修复前请退出姿态模式')
                 rig=_current(options,context,core);constraint_edits=[];bone_edits=[];weight_edits=[]

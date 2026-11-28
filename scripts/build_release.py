@@ -2,8 +2,8 @@
 from pathlib import Path
 import argparse, ast, hashlib, json, re, shutil, zipfile
 ROOT = Path(__file__).resolve().parents[1]
-VERSION = '0.40.1'
-ADDON_NAME = 'rigging_workflow-0.40.1.zip'
+VERSION = '1.0.0-rc.1'
+ADDON_NAME = 'rigging_workflow-1.0.0-rc.1.zip'
 CLI_PREVIEW = '0.42.3-agent-v003'
 LOCAL_CUDA_OUTPUTS = {
     'cli-v003/rigging_workflow/volume/cuda/direct-pcg-sm120.cubin',
@@ -47,6 +47,9 @@ def selected():
         if p.suffix.lower() == '.pmx':
             if name != 'rigging_workflow/resources/mmd/uka/MS_Uka.pmx' or sha(data) != expected['resources/mmd/uka/MS_Uka.pmx']:
                 raise ValueError('Unknown binary resource: '+name)
+        elif p.suffix.lower() == '.png':
+            if data[:8] != b'\x89PNG\r\n\x1a\n':
+                raise ValueError('Invalid PNG icon: '+name)
         else:
             text = data.decode('utf-8-sig')
             if p.suffix == '.py':

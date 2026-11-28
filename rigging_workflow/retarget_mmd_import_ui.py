@@ -301,12 +301,12 @@ def _timer():
     return .75
 
 class C94MMDIMPORT_Options(bpy.types.PropertyGroup):
-    mode:EnumProperty(name='来源方式',items=(('EXPLICIT_PMX','明确原PMX（优先）','选择要作为动作来源的实际PMX'),('STANDARD_REFERENCE','无原PMX：Uka标准参考源','不保证原模型rest/比例，自定义骨差异明确报告')),default='EXPLICIT_PMX')
+    mode:EnumProperty(name='来源方式',items=(('EXPLICIT_PMX','明确原PMX（优先）','选择要作为动作来源的实际PMX'),('STANDARD_REFERENCE','无原PMX：Uka标准参考源','不保证原模型静置姿态/比例，自定义骨差异明确报告')),default='EXPLICIT_PMX')
     pmx:StringProperty(name='PMX模型',subtype='FILE_PATH');vmd:StringProperty(name='主VMD动作',subtype='FILE_PATH')
     resource_root:StringProperty(name='已核Uka资源目录',subtype='DIR_PATH')
     reference_acknowledged:BoolProperty(name='明确接受标准参考源及原模型/比例不保证',default=False)
     primary_clip_id:StringProperty(name='主片段ID',default='dance')
-    clips_json:StringProperty(name='同源额外片段 JSON（id/vmd/fps=30）',default='[]')
+    clips_json:StringProperty(name='同源额外片段（JSON 字段 id、vmd、fps=30）',default='[]')
     cli_path:StringProperty(name='公共blenderctl.ps1',subtype='FILE_PATH',default='F:/Blender AI/blenderctl.ps1')
     shell_path:StringProperty(name='已有pwsh路径（空则PATH）',subtype='FILE_PATH')
     output_root:StringProperty(name='明确后台输出根',subtype='DIR_PATH')

@@ -68,20 +68,20 @@ def _base_candidate(action):
 
 class C94RETARGETPUB_Options(bpy.types.PropertyGroup):
     input_kind:EnumProperty(name='候选来源',items=(
-        ('BODY','身体 / 通用','使用身体面板选定的目标与候选Action'),
-        ('MMD','MMD','使用MMD面板选定的目标与候选Action'),
-        ('PROFILE','通用Profile','使用通用Profile面板选定的目标与候选Action')),default='BODY',update=_mode_changed)
+        ('BODY','身体 / 通用','使用身体面板选定的目标与候选动作'),
+        ('MMD','MMD','使用MMD面板选定的目标与候选动作'),
+        ('PROFILE','通用来源配置','使用通用来源配置面板选定的目标与候选动作')),default='BODY',update=_mode_changed)
     mode:EnumProperty(name='正式使用方式',items=(
-        ('ACTION','持久绑定Action','保存与重开后仍使用此基础动作'),
+        ('ACTION','持久绑定动作','保存与重开后仍使用此基础动作'),
         ('NLA','可选：追加NLA','新建独有REPLACE轨道；原未静音/独奏轨道会拒绝')),default='ACTION',update=_mode_changed)
     reviewed:BoolProperty(name='我已检查此基础候选和已知限制',default=False,update=_review_changed,options={'SKIP_SAVE'})
-    isolate_nla:BoolProperty(name='明确隔离当前正在求值的原NLA',description='仅Action模式：use_nla关闭，原track mute保持；撤回恢复',default=False)
+    isolate_nla:BoolProperty(name='明确隔离当前正在求值的原NLA',description='仅播放动作，撤回时恢复原有 NLA 状态',default=False)
     reviewed_action:PointerProperty(type=bpy.types.Action,options={'SKIP_SAVE'})
     reviewed_target:PointerProperty(type=bpy.types.Object,options={'SKIP_SAVE'})
     reviewed_report:StringProperty(options={'SKIP_SAVE'})
     reviewed_uid:StringProperty(options={'SKIP_SAVE'})
     message:StringProperty(name='状态',default='先复核基础候选，再明确正式使用方式')
-    receipt_text:StringProperty(name='本次回执Text',default='')
+    receipt_text:StringProperty(name='本次回执文本数据块',default='')
 
 class C94RETARGETPUB_OT_action(bpy.types.Operator):
     bl_idname='c94_workflow.retarget_publish'

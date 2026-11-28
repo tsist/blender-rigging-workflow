@@ -14,7 +14,7 @@ import numpy as np
 from bpy.app.handlers import persistent
 
 from . import cloth_backend as physics, surface_bake as surface
-from . import corrective_authoring as sig, face_capture as state, control_panel as panel
+from . import corrective_authoring as sig, face_capture as state, control_panel as panel, secondary_dynamics
 
 STATE_KEY = 'c94_surface_dynamic_v1'
 OWNER_KEY = 'c94_surface_dynamic_owner_v1'
@@ -94,7 +94,7 @@ def _pins(obj, pins):
     return selected
 
 
-def install(rig, source, *, kind, group_id, pins, colliders, settings=None):
+def install(rig, source, *, kind, group_id, pins, colliders, settings=None, settings_control=None):
     record = _record(rig); _mesh(source, rig, True)
     _require(isinstance(group_id, str) and re.fullmatch(r'[\w\-\u4e00-\u9fff]{1,48}', group_id),
              '组ID使用1至48个中英文字母、数字、下划线或连字符')
@@ -107,12 +107,12 @@ def install(rig, source, *, kind, group_id, pins, colliders, settings=None):
              and source not in colliders, '明确指定独立身体碰撞输入，不自动扫描场景')
     for obj in colliders:
         _mesh(obj, rig)
-    control = rig.pose.bones.get('骨架设置')
-    _require(control is not None, '骨架缺少骨架设置控件')
+    control = secondary_dynamics.control(rig, settings_control)
     enabled, mix = '发裙_'+group_id+'_启用', '发裙_'+group_id+'_混合'
     _require(enabled not in control and mix not in control, '原生动态属性名称冲突，不覆盖用户属性')
     row = {'kind': kind, 'source': source.name, 'colliders': [o.name for o in colliders],
-           'pins': pins, 'settings': config, 'enabled': enabled, 'mix': mix, 'bakes': []}
+           'pins': pins, 'settings': config, 'enabled': enabled, 'mix': mix, 'bakes': [],
+           'settings_control': control.name}
     old = rig.get(STATE_KEY)
     old_layout = rig.get(panel.LAYOUT_KEY)
     try:
@@ -123,7 +123,7 @@ def install(rig, source, *, kind, group_id, pins, colliders, settings=None):
             layout=panel.read_layout(rig)
             for key in (enabled,mix):
                 layout['rows'].append({'id':uuid.uuid4().hex,'kind':'property','group':'发裙动态 · '+group_id,
-                                      'label':key,'visible':True,'bone':'骨架设置','property':key})
+                                      'label':key,'visible':True,'bone':control.name,'property':key})
             panel._save(rig,layout)
     except Exception:
         for key in (enabled, mix):
@@ -154,7 +154,7 @@ def _resolve(rig, group_id):
     _mesh(source, rig, True)
     for obj in colliders: _mesh(obj, rig)
     _pins(source, row['pins']); physics.normalize_settings(row['kind'], row['settings'])
-    surface._controls(rig, row['enabled'], row['mix'])
+    surface._controls(rig, row['enabled'], row['mix'], row.get('settings_control'))
     return record, row, source, colliders
 
 
@@ -169,8 +169,21 @@ def _signature(rig, group_id):
              '当前捕获不接外来逐帧回调；请在无其它逐帧求解回调的制作会话重试，原回调不会被卸载')
     _require(bpy.context.scene.render.frame_map_old == bpy.context.scene.render.frame_map_new,
              '当前动态片段需要1:1场景时间映射')
-    _require(rig.parent is None and not rig.constraints and rig.data.animation_data is None,
-             '当前捕获需要无外部父级/对象约束/骨架数据动画的角色')
+    _require(rig.parent is None and not rig.constraints, '捕获需要无外部父级或对象约束的角色')
+    data_animation = rig.data.animation_data
+    data_drivers = tuple(data_animation.drivers) if data_animation else ()
+    if data_animation:
+        _require(not data_animation.action and not data_animation.nla_tracks and not data_animation.use_tweak_mode,
+                 '骨架数据仅接受本机 B-Bone ease 驱动')
+        for curve in data_drivers:
+            path = re.fullmatch(r'(bones\["(?:[^"\\]|\\.)+"\])\.bbone_ease(?:in|out)', curve.data_path)
+            _require(path and rig.data.path_resolve(path[1]).use_deform
+                     and curve.driver.type in {'SUM', 'AVERAGE'}
+                     and len(curve.driver.variables) == 1 and
+                     all(var.type == 'SINGLE_PROP' and len(var.targets) == 1 and
+                         var.targets[0].id == rig and var.targets[0].data_path.startswith('pose.bones[')
+                         for var in curve.driver.variables),
+                     '骨架数据含非本机 B-Bone ease 驱动')
     paths = {}
     ad = rig.animation_data
     curves = [f for f in ad.drivers if not f.mute] if ad else []
@@ -212,7 +225,7 @@ def _signature(rig, group_id):
                     if bag: curves.extend(bag.fcurves)
     for curve in curves: paths.setdefault(curve.data_path, set()).add(curve.array_index)
     internal_driver_inputs=[]
-    for curve in ad.drivers if ad else []:
+    for curve in (*(ad.drivers if ad else ()), *data_drivers):
         for variable in curve.driver.variables:
             if variable.type=='SINGLE_PROP':
                 for target in variable.targets:
@@ -223,7 +236,8 @@ def _signature(rig, group_id):
                             masked=masked or int(component[2]) in paths.get(component[1],set())
                         internal_driver_inputs.append([target.id.session_uid,target.data_path,
                             None if masked else sig._plain(target.id.path_resolve(target.data_path))])
-    controls = {g[k] for g in record['groups'].values() for k in ('enabled', 'mix')}
+    controls = {(secondary_dynamics.control(rig, g.get('settings_control')).name, g[k])
+                for g in record['groups'].values() for k in ('enabled', 'mix')}
     def inputs(owner):
         values = sig._rna(owner)
         for field in tuple(values):
@@ -243,7 +257,7 @@ def _signature(rig, group_id):
             targets.extend(getattr(t,'target',None) for t in getattr(constraint,'targets',()))
             _require(all(t is None or t==rig for t in targets), '捕获不接未跟踪的外部骨约束目标')
         properties = {k:sig._plain(v) for k,v in pb.items()
-                      if not (pb.name == '骨架设置' and k in controls)}
+                      if (pb.name, k) not in controls}
         for key in properties:
             if surface._property_path(pb, key) in paths: properties[key] = None
         bones.append([pb.name, pb.parent.name if pb.parent else None, inputs(pb), properties,
@@ -258,7 +272,7 @@ def _signature(rig, group_id):
     return sig._hash({'rig':rig.session_uid, 'data':rig.data.session_uid, 'inputs':inputs(rig),
                      'bones':bones, 'rest':[[b.name, sig._plain(b.matrix_local),b.use_deform,b.bbone_segments]
                                           for b in rig.data.bones],
-                     'animation':state._animation(rig), 'objects':objects,
+                     'animation':state._animation(rig), 'data_animation':state._animation(rig.data), 'objects':objects,
                      'internal_driver_inputs':internal_driver_inputs,
                      'group':{k:v for k,v in row.items() if k != 'bakes'},
                      'fps':[bpy.context.scene.render.fps,bpy.context.scene.render.fps_base],
@@ -336,7 +350,8 @@ class Clip:
                 label=base+'_'+str(index);index+=1
             row = _record(self.rig)['groups'][self.group_id]
             self.prepared = surface.prepare(self.source,self.rig,self.times,self.positions,self.affines,
-                label=label,enable_property=row['enabled'],mix_property=row['mix'],validate_source=self._check)
+                label=label,enable_property=row['enabled'],mix_property=row['mix'],validate_source=self._check,
+                settings_control=row.get('settings_control'))
         return self.prepared
 
     def _show(self):
@@ -433,7 +448,7 @@ def freeze(rig, group_id):
 def reset(rig, group_id):
     stop_preview(rig,group_id)
     row=_record(rig)['groups'][group_id]
-    rig.pose.bones['骨架设置'][row['enabled']]=False
+    secondary_dynamics.control(rig, row.get('settings_control'))[row['enabled']]=False
     rig.update_tag(refresh={'OBJECT'});bpy.context.view_layer.update()
 
 

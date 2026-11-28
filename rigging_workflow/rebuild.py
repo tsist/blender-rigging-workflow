@@ -185,9 +185,9 @@ def _mesh_plan(obj, source_rig, metadata, definition, name):
         bone = source_rig.data.bones.get(group)
         _need(not (bone and bone.use_deform) or group in semantic, 'UNMAPPED_DEFORM_GROUP',
               '存在未纳入生成语义的实际形变组：' + obj.name + '/' + group)
-    destination_values = {target: np.asarray([row.get(target, 0.) for row in rows], dtype=np.float64) for target in targets}
+    destination_values = {target: np.asarray([row.get(target, 0.) for row in rows], dtype=np.float64) for target in sorted(targets)}
     moved = {target: 0. for target in targets}; positive = set(); assignments = 0
-    for source in closed:
+    for source in sorted(closed):
         destination = reverse[merge[semantic[source]]]
         for vertex, row in enumerate(rows):
             value = row.get(source, 0.)
@@ -446,8 +446,7 @@ def _restore_selection(active, selected):
     bpy.context.view_layer.objects.active = active
 
 
-def rebuild(scene, reference, template_file, configuration, source_rig, objects, *, label):
-    """Generate a new configured rig, then rebind only explicit independent copies."""
+def _inputs(scene, reference, template_file, configuration, source_rig, objects, *, label, rig=None):
     _need(scene == bpy.context.scene and bpy.context.mode == 'OBJECT', 'OBJECT_MODE_REQUIRED', '重建需要当前场景的对象模式')
     _local(scene, reference, 'ARMATURE');_local(scene, source_rig, 'ARMATURE')
     _need(reference != source_rig and source_rig.parent is None and not source_rig.constraints
@@ -459,8 +458,8 @@ def rebuild(scene, reference, template_file, configuration, source_rig, objects,
     label = label.strip()
     names = [f'{label}__重建_{i:02d}' for i in range(1, len(objects)+1)]
     _need(all(len(n.encode('utf8')) <= 63 for n in [label+'__控制骨架', label+'__绑定生成', *[n+'__网格' for n in names]])
-          and label+'__控制骨架' not in bpy.data.objects and label+'__控制骨架' not in bpy.data.armatures
-          and label+'__绑定生成' not in bpy.data.collections
+          and (rig is not None or (label+'__控制骨架' not in bpy.data.objects
+               and label+'__控制骨架' not in bpy.data.armatures and label+'__绑定生成' not in bpy.data.collections))
           and all(n not in bpy.data.objects and n+'__网格' not in bpy.data.meshes for n in names),
           'NAME_COLLISION', '新rig/集合/Object/Mesh名称冲突或超过原生字节上限')
     configured = module_configuration.validate(scene, reference, template_file, configuration)
@@ -496,47 +495,159 @@ def rebuild(scene, reference, template_file, configuration, source_rig, objects,
     _need(source_rig.data.pose_position == 'POSE' and source_neutral['sample_max'] <= 1e-5 and source_neutral['head_tail_max'] <= 1e-5,
           'SOURCE_NOT_NEUTRAL', '旧rig不在实际B-Bone校准中立状态')
     old_contract = signatures._rig_state(source_rig)['contract']
-    scene_props = signatures._plain(dict(scene.items()))
     before_points = [skinning_job._points(obj) for obj in objects]
-    before = module_configuration._ids();active = bpy.context.view_layer.objects.active;selected = list(bpy.context.selected_objects)
-    result = None;owned = []
+    return {'configuration': configured, 'definition': definition, 'old_meta': old_meta,
+            'semantics': semantics & keep, 'source_action': action, 'source_neutral': source_neutral,
+            'source_template_identity': source_template_identity, 'signature': signature,
+            'layout': layout, 'plans': plans, 'old_contract': old_contract, 'before_points': before_points}
+
+
+def scope_source(obj):
+    """Saved source address and deterministic structure/weight digest."""
+    state = _object_state(obj)
+    state['data'] = signatures._plain(obj.data)
+    state['proxy']['shape_keys_id'] = signatures._plain(obj.data.shape_keys)
+    state['proxy']['parent_id'] = signatures._plain(obj.parent)
+    state['materials'] = [[s.link, signatures._plain(s.material)] for s in obj.material_slots]
+    return {'object': obj.name, 'mesh': obj.data.name, 'sha256': signatures._hash(state)}
+
+
+def _scope(rig, reference, source_rig, inputs):
+    plans = inputs['plans']
+    _new_mapping(plans, inputs['old_meta'], _metadata(rig))
+    source_action = {key: value for key, value in inputs['source_action'].items() if key != 'action_id'}
+    meshes = []
+    for plan in plans:
+        affected = plan['closed'] | set(plan['target_values']) | {
+            name for name in plan['names'] if name != plan['rename'].get(name, name)}
+        meshes.append({'source': scope_source(plan['source']), 'output': plan['name'],
+                       'vertices': len(plan['rows']),
+                       'affected_point_indices': [i for i, row in enumerate(plan['rows'])
+                                                  if any(row.get(name, 0.) > 0 for name in affected)],
+                       'removed_groups': sorted(plan['closed']),
+                       'renames': {k: v for k, v in plan['rename'].items() if k in plan['names'] and k != v},
+                       'merged_columns': {plan['destinations'][name]: signatures._array_hash(
+                           values.astype('<f4')) for name, values in plan['target_values'].items()},
+                       'plan': copy.deepcopy(plan['report'])})
+    scene = bpy.context.scene
+    return {'kind': 'rebuild', 'rig': rig.name, 'reference': reference.name,
+            'reference_signature': inputs['signature'], 'source_rig': source_rig.name,
+            'source_rig_sha256': inputs['old_contract'], 'source_action': source_action,
+            'frame': [scene.frame_current, scene.frame_subframe],
+            'view_layer': bpy.context.view_layer.name, 'unit_scale': float(scene.unit_settings.scale_length),
+            'configuration_id': inputs['configuration']['id'], 'meshes': meshes}
+
+
+def prepare_candidate(scene, reference, template_file, configuration, source_rig, objects, *,
+                      label, control_sections=('body', 'arms', 'legs'), shoulder_landmarks=None):
+    """Generate the final rig and freeze its proposed migration without writing weights."""
+    from . import candidate_state, control_layer
+
+    label = label.strip()
+    inputs = _inputs(scene, reference, template_file, configuration, source_rig, objects, label=label)
+    before = module_configuration._ids()
+    active = bpy.context.view_layer.objects.active
+    selected = list(bpy.context.selected_objects)
+    owned = []
     try:
-        generated = generation.generate(scene, reference, template_file, label=label, configuration=configured, owned_ids=owned)
-        rig, collection = generated['rig'], generated['collection'];new_meta = _metadata(rig)
-        _need(set(new_meta['reference_mapping'].values()) == semantics & keep,
+        generated = generation.generate(scene, reference, template_file, label=label,
+                                        configuration=inputs['configuration'], owned_ids=owned)
+        rig, collection = generated['rig'], generated['collection']
+        _need(set(_metadata(rig)['reference_mapping'].values()) == inputs['semantics'],
               'INVALID_SEMANTIC_MAPPING', '新rig实际输出语义集合不等于配置保留集')
-        _new_mapping(plans, old_meta, new_meta)
-        layout_report = _layout_migrate(source_rig, rig, layout, definition, label,
-                                       removed_settings=generated['report'].get('disabled_module_settings_removed', ()))
-        new_objects, reports = [], []
-        for plan in plans:
-            obj, report = _copy_mesh(plan, rig, collection, configured, owned_ids=owned);new_objects.append(obj);reports.append(report)
-        bpy.context.view_layer.update();scale = float(scene.unit_settings.scale_length)
-        _need(math.isfinite(scale) and scale > 0, 'INVALID_UNITS', '场景米制比例必须有限为正')
-        for source, obj, expected, report in zip(objects, new_objects, before_points, reports):
-            actual = skinning_job._points(obj)
-            _need(actual.shape == expected.shape and np.isfinite(actual).all(), 'EVALUATED_SURFACE_CHANGED', '新副本求值拓扑或数值改变')
-            error = float(np.linalg.norm(actual-expected, axis=1).max(initial=0))*scale
-            _need(error <= 1e-5, 'EVALUATED_SURFACE_CHANGED', '新副本中立世界求值表面跳变', {'object': obj.name, 'meters': error})
-            report.update(evaluated_vertices=len(actual), neutral_surface_error_meters=error)
-        _need(all(_object_state(p['source']) == p['state'] for p in plans)
-              and signatures._rig_state(source_rig)['contract'] == old_contract
-              and _action_state(source_rig, rig=True) == action
-              and positioning.reference_signature(reference) == signature
-              and signatures._plain(dict(scene.items())) == scene_props,
-              'SOURCE_CHANGED', '源Mesh/权重/旧rig/Action/参考/场景状态改变，已撤回本次新增候选')
-        report = {'schema': 'c94.module-rebuild.v1', 'configuration_id': configured['id'],
+        layout = _layout_migrate(source_rig, rig, inputs['layout'], inputs['definition'], label,
+                                 removed_settings=generated['report'].get('disabled_module_settings_removed', ()))
+        control_layer.build(rig, family='c94', sections=control_sections,
+                            action_policy='remap', owned_ids=owned)
+        if shoulder_landmarks is not None:
+            generation.install_shoulder_girdle(scene, reference, generated, shoulder_landmarks, owned_ids=owned)
+        bpy.context.view_layer.update()
+        scope = _scope(rig, reference, source_rig, inputs)
+        report = {'schema': 'c94.module-rebuild.v1', 'state': 'awaiting_review',
                   'source_rig': source_rig.name, 'rig': rig.name, 'reference': reference.name,
-                  'reference_signature': signature, 'source_action': action, 'source_neutral': source_neutral,
-                  'legacy_source_template_identity': source_template_identity,
-                  'generation': generated['report'], 'layout': layout_report, 'meshes': reports,
-                  'source_unchanged': True, 'scope': 'explicit keyless Mesh copies; empty old Action only; no animation/face-authoring migration; not saved'}
-        result = {'rig': rig, 'collection': collection, 'objects': new_objects, 'report': report}
-        return result
+                  'configuration_id': inputs['configuration']['id'], 'generation': generated['report'],
+                  'layout': layout, 'meshes': [mesh['plan'] for mesh in scope['meshes']],
+                  'legacy_source_template_identity': inputs['source_template_identity']}
+        payload = {'label': label, 'source_rig': source_rig.name, 'reference': reference.name,
+                   'objects': [obj.name for obj in objects], 'collection': collection.name,
+                   'template': str(Path(template_file).resolve()), 'configuration': inputs['configuration'],
+                   'scope': scope, 'report': report}
+        record = candidate_state.record(scene, rig, kind='rebuild', payload=payload)
+        return {'rig': rig, 'collection': collection, 'objects': [], 'candidate_id': record['id'],
+                'scope': scope, 'report': report}
     except Exception:
-        # Native import roots/dependencies and explicit copy returns are owned;
-        # unrelated IDs created by callbacks never enter this removal list.
         module_configuration._cleanup(before, active, selected, owned_ids=owned)
         raise
     finally:
         _restore_selection(active, selected)
+
+
+def inspect_candidate(scene, candidate_id):
+    from . import candidate_state
+
+    rig, record = candidate_state.resolve(scene, candidate_id, kind='rebuild')
+    payload = record['payload']
+    source_rig = scene.objects.get(payload['source_rig'])
+    reference = scene.objects.get(payload['reference'])
+    objects = [scene.objects.get(name) for name in payload['objects']]
+    collection = bpy.data.collections.get(payload['collection'])
+    _need(collection is not None and collection.objects.get(rig.name) == rig,
+          'CANDIDATE_CHANGED', '已准备骨架不再属于本次候选集合')
+    inputs = _inputs(scene, reference, payload['template'], payload['configuration'],
+                     source_rig, objects, label=payload['label'], rig=rig)
+    _need(set(_metadata(rig)['reference_mapping'].values()) == inputs['semantics'],
+          'CANDIDATE_CHANGED', '候选骨架实际输出语义改变')
+    scope = _scope(rig, reference, source_rig, inputs)
+    _need(scope == payload['scope'], 'SCOPE_CHANGED', '原件、定位参考或迁权范围已变，须重新准备及审核')
+    return rig, collection, scope, inputs, payload
+
+
+def apply_candidate(scene, candidate_id):
+    from . import candidate_state
+
+    rig, collection, scope, inputs, payload = inspect_candidate(scene, candidate_id)
+    candidate_state.require_operation(rig, operation='rebuild.apply', scope=scope)
+    _need(not rig.get('c94_rebuild_applied_v1'), 'ALREADY_APPLIED', '已创建本次独立候选')
+    before = module_configuration._ids()
+    active = bpy.context.view_layer.objects.active
+    selected = list(bpy.context.selected_objects)
+    owned = []
+    source_rig = scene.objects[payload['source_rig']]
+    template = payload['configuration']
+    label = payload['label']
+    try:
+        new_objects, reports = [], []
+        for plan in inputs['plans']:
+            obj, report = _copy_mesh(plan, rig, collection, template, owned_ids=owned)
+            new_objects.append(obj)
+            reports.append(report)
+        bpy.context.view_layer.update()
+        scale = float(scene.unit_settings.scale_length)
+        _need(math.isfinite(scale) and scale > 0, 'INVALID_UNITS', '场景米制比例必须有限为正')
+        for obj, expected, report in zip(new_objects, inputs['before_points'], reports, strict=True):
+            actual = skinning_job._points(obj)
+            _need(actual.shape == expected.shape and np.isfinite(actual).all(),
+                  'EVALUATED_SURFACE_CHANGED', '新副本求值拓扑或数值改变')
+            error = float(np.linalg.norm(actual-expected, axis=1).max(initial=0)) * scale
+            _need(error <= 1e-5, 'EVALUATED_SURFACE_CHANGED', '新副本中立世界求值表面跳变',
+                  {'object': obj.name, 'meters': error})
+            report.update(evaluated_vertices=len(actual), neutral_surface_error_meters=error)
+        _need(all(_object_state(plan['source']) == plan['state'] for plan in inputs['plans'])
+              and signatures._rig_state(source_rig)['contract'] == inputs['old_contract']
+              and _action_state(source_rig, rig=True) == inputs['source_action'],
+              'SOURCE_CHANGED', '原件几何、权重、骨架或Action改变，已撤回迁权候选')
+        report = dict(payload['report'], state='applied', meshes=reports, source_unchanged=True,
+                      source_neutral=inputs['source_neutral'], source_action=scope['source_action'])
+        rig['c94_rebuild_applied_v1'] = json.dumps(report, ensure_ascii=False, allow_nan=False)
+        return {'rig': rig, 'collection': collection, 'objects': new_objects, 'report': report,
+                'candidate_id': candidate_id}
+    except Exception:
+        module_configuration._cleanup(before, active, selected, owned_ids=owned)
+        raise
+    finally:
+        _restore_selection(active, selected)
+
+
+def rebuild(scene, reference, template_file, configuration, source_rig, objects, *, label):
+    """Reject the legacy generation-and-write path before changing the scene."""
+    raise RebuildError('STAGED_REVIEW_REQUIRED', '先生成并保存无权重候选骨架，完成同一范围双审后再采用迁权')

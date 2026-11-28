@@ -1,0 +1,9 @@
+schema_version = "1.0.0"
+id = "rigging_workflow"
+version = "1.0.0-rc.1"
+name = "角色绑定工作台"
+tagline = "构建并检查可编辑的角色骨架"
+maintainer = "Blender AI"
+type = "add-on"
+blender_version_min = "5.3.0"
+license = ["SPDX:GPL-3.0-only"]

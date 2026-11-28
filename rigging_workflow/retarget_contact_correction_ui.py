@@ -29,7 +29,7 @@ class C94_OT_contact_correction_confirm(bpy.types.Operator):
         if plan is None:
             self.layout.label(text='候选已失效，请重新预览')
             return
-        self.layout.label(text='只应用下列一个问题；原基础Action保留，可从专项入口撤回。')
+        self.layout.label(text='只应用下列一个问题；原基础动作保留，可从专项入口撤回。')
         self.layout.label(text='问题ID：' + plan.issue_id)
         if plan.calibration.get('measurement_mode') == 'bone_anchors':
             self.layout.label(text='测量：明确骨局部接触标记，未采样皮肤足底')
@@ -41,7 +41,7 @@ class C94_OT_contact_correction_confirm(bpy.types.Operator):
         for path in sorted({row['path'] for row in plan.report['curve_changes']}):
             self.layout.label(text=path)
         self.layout.label(text=f'允许最大位移：{plan.parameters["max_delta_m"]*1000:g} mm；求值残差门：{plan.parameters["solve_tolerance_m"]*1000:g} mm')
-        self.layout.label(text='旧辅助动态不自动重烘焙；候选参数和完整曲线差异保存在Action专项记录。')
+        self.layout.label(text='旧辅助动态不自动重烘焙；候选参数和完整曲线差异保存在动作专项记录。')
 
     def execute(self, context):
         try:

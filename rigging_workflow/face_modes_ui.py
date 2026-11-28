@@ -48,7 +48,7 @@ class _FaceOperator:
 
 class C94FACE_ManualKeyOption(bpy.types.PropertyGroup):
     object_name: StringProperty(name='对象', options={'HIDDEN'})
-    key_name: StringProperty(name='Key', options={'HIDDEN'})
+    key_name: StringProperty(name='形态键', options={'HIDDEN'})
     selected: BoolProperty(name='纳入面部输入', default=False)
 
 
@@ -62,7 +62,7 @@ class C94FACE_UL_ManualKeys(bpy.types.UIList):
 class C94FACE_OT_CaptureNeutral(_FaceOperator, bpy.types.Operator):
     bl_idname = 'c94_workflow.face_capture_neutral'
     bl_label = '记录当前面部中立输入'
-    bl_description = '由操作者认定当前输入为中立并明确记录；不自动证明无表情，不制作角色表情Key'
+    bl_description = '由操作者认定当前输入为中立并明确记录；不自动证明无表情，不制作角色表情形态键'
     bl_options = {'REGISTER', 'UNDO'}
     manual_keys: CollectionProperty(type=C94FACE_ManualKeyOption, options={'SKIP_SAVE'})
     active_manual_key: IntProperty(default=0, min=0, options={'HIDDEN', 'SKIP_SAVE'})
@@ -111,10 +111,10 @@ class C94FACE_OT_CaptureNeutral(_FaceOperator, bpy.types.Operator):
 class C94FACE_OT_Switch(_FaceOperator, bpy.types.Operator):
     bl_idname = 'c94_workflow.face_switch_mode'
     bl_label = '安全切换面部模式'
-    bl_description = ('原生开关仅部分门控，骨控模式仍可能消费Key；'
-                      '安全切换保留当前输入，有冲突时拒绝；复位选项仅复位已记录的面部输入')
+    bl_description = ('骨控模式仍可受形态键影响。安全切换会保留当前输入，'
+                      '存在冲突时会提示。复位以已记录的面部中立状态为准。')
     bl_options = {'REGISTER', 'UNDO'}
-    target: EnumProperty(name='目标模式', items=(('KEY', 'Key模式', ''), ('BONE', '骨控模式', '')))
+    target: EnumProperty(name='目标模式', items=(('KEY', '形态键模式', ''), ('BONE', '骨控模式', '')))
     reset: BoolProperty(name='先复位面部输入', default=False,
                         description='仅将本块管理的面部输入恢复到已记录的中立值，再切换模式；不全身复位')
     follow_visibility: BoolProperty(name='同步控件空间显隐', default=True,
@@ -181,7 +181,7 @@ class C94FACE_PT_Modes(bpy.types.Panel):
             return
         mode = {'KEY': 'Key模式', 'BONE': '骨控模式'}.get(state['mode'], str(state['mode']))
         layout.label(text='当前：' + mode)
-        layout.label(text=f'面部控件：{state["control_count"]}；手动Key：{state["manual_key_count"]}')
+        layout.label(text=f"面部控件：{state['control_count']}；手动形态键：{state['manual_key_count']}")
         if state['conflicts']:
             box = layout.box()
             box.label(text='当前输入冲突：' + str(len(state['conflicts'])) + '项', icon='ERROR')

@@ -2,13 +2,13 @@
 import textwrap
 import bpy
 from bpy.props import EnumProperty, PointerProperty
-from . import bl_info
 
 OPTIONS = 'c94_workspace_options_v1'
 _REGISTERED = []
 _ROUTED = []
 _UI_MODULES = []
 _AVAILABLE_STAGES = set()
+_PRESENTATION = None
 STAGES = (
     ('AUTO', '自动', '依据角色与当前会话显示可继续的工作'),
     ('PREPARE', '准备与定位', '模板、模块与完整参考骨'),
@@ -24,6 +24,7 @@ LEVELS = (('DAILY', '日常', '主要操作'), ('ADVANCED', '进阶', '完整制
 LEVEL = {'DAILY': 0, 'ADVANCED': 1, 'DEVELOPER': 2}
 # Explicit coverage of all registered panels. Retired exchange UI stays absent.
 ROUTES = {
+    'modular_ui': ('PREPARE', 0, '独立人形与四足模板'),
     'ui': ('MAINTAIN', 2, '模板与依赖审查'),
     'workspace_setup': ('PREPARE', 0, '01 · 准备角色与定位图谱'),
     'positioning_ui': ('PREPARE', 0, '02 · 模板与参考骨定位'),
@@ -35,6 +36,7 @@ ROUTES = {
     'skinning_plan_ui': ('BIND', 1, '04 · 多区域蒙皮'),
     'skinning_policy_ui': ('BIND', 1, '05 · 权重策略'),
     'local_skinning_ui': ('BIND', 1, '06 · 局部重算与刷权重'),
+    'weight_repair_ui': ('BIND', 1, '局部权重修复套组'),
     'skin_parts_ui': ('BIND', 1, '07 · 皮肤部件派生'),
     'corrective_ui': ('BIND', 1, '08 · 姿态修正'),
     'control_panel': ('CONTROL', 0, '身体与四肢控制'),
@@ -54,6 +56,8 @@ ROUTES = {
     'retarget_publish_ui': ('MOTION', 0, '04 · 正式使用与撤回'),
     'retarget_contact_detection_ui': ('MOTION', 1, '05 · 足部只读检测'),
     'retarget_contact_job_ui': ('MOTION', 1, '06 · 足部逐问题修正'),
+    'posing_rom_ui': ('CONTROL', 0, '肩带摆姿与关节范围'),
+    'three_beats_ui': ('CONTROL', 0, '三拍摆姿'),
     'retarget_contact_hints': ('MOTION', 1, '07 · 手与身体复核提示'),
     'retarget_job_ui': ('MOTION', 1, '08 · FBX / BVH后台队列'),
     'retarget_mmd_job_ui': ('MOTION', 1, '09 · MMD后台队列'),
@@ -61,7 +65,7 @@ ROUTES = {
     'retarget_generic_target_ui': ('MOTION', 1, '11 · 普通FK目标'),
     'retarget_mmd_camera_ui': ('MOTION', 1, '12 · 可选MMD镜头'),
     'native_maintenance_ui': ('MAINTAIN', 0, '01 · 保留原骨架维护'),
-    'author_rework_ui': ('MAINTAIN', 1, '02 · C94作者返工'),
+    'author_rework_ui': ('MAINTAIN', 1, '02 · 角色模板返工'),
 }
 HINTS = {
     'PREPARE': '先明确模板和模块，完成参考骨定位，再进入绑定。',
@@ -70,7 +74,7 @@ HINTS = {
     'FACE': '日常调整表情；制作、采样和Key修订位于进阶。',
     'DYNAMIC': '基础动作确定后捕获动态；动作或参数改变须重新捕获。',
     'MOTION': '选择来源并制作独立候选，预览后正式使用；可撤回。',
-    'MAINTAIN': '保留原骨架做局部维护；完整C94返工位于进阶。',
+    'MAINTAIN': '可局部维护原骨架，角色模板返工位于进阶。',
 }
 
 
@@ -151,11 +155,12 @@ def stage(context):
         return opts.stage
     entry = _module('workflow_ui')
     session = entry._SESSION if entry else None
-    if session and session['plan'].scene == context.scene:
+    if session and session['scene'] == context.scene:
         return 'BIND'
     rig, _ = current_target(context)
     if rig:
-        result = 'CONTROL' if rig.get('c94_generated_rig_v1') else 'MAINTAIN'
+        result = 'CONTROL' if (rig.get('c94_generated_rig_v1') or rig.get('rigging_modular_v1')) else 'MAINTAIN'
+        if rig.get('rigging_modular_reference_v1'): result = 'PREPARE'
     else:
         result = 'PREPARE'
     if result not in _AVAILABLE_STAGES:
@@ -235,6 +240,9 @@ class C94NAV_PT_Workspace(bpy.types.Panel):
     def draw(self, context):
         layout = self.layout
         opts = options(context)
+        if _PRESENTATION is not None:
+            _PRESENTATION.draw(layout, context, opts)
+            return
         layout.prop(opts, 'target', text='角色')
         layout.operator(C94NAV_OT_Activate.bl_idname, text='进入角色', icon='RESTRICT_SELECT_OFF')
         rig, warning = current_target(context)
@@ -242,7 +250,7 @@ class C94NAV_PT_Workspace(bpy.types.Panel):
             box = layout.box(); box.alert = True; _lines(box, warning)
         elif rig:
             layout.label(text=rig.name, icon='ARMATURE_DATA')
-            layout.label(text='已生成角色' if rig.get('c94_generated_rig_v1') else '保留原骨架', icon='CHECKMARK')
+            layout.label(text='已生成角色' if (rig.get('c94_generated_rig_v1') or rig.get('rigging_modular_v1')) else '保留原骨架', icon='CHECKMARK')
             animation = rig.animation_data
             layout.label(text='已有动作 / NLA' if animation and (animation.action or animation.nla_tracks)
                               else '当前未绑定动作', icon='ACTION')
@@ -256,10 +264,6 @@ class C94NAV_PT_Workspace(bpy.types.Panel):
         if stage(context) == 'MOTION':
             layout.prop(opts, 'motion_source', text='来源')
         _lines(layout, HINTS[stage(context)])
-        if opts.level == 'DEVELOPER':
-            version = '.'.join(str(part) for part in bl_info['version'])
-            layout.label(text='插件 ' + version + ' · 场景 ' + context.scene.name)
-            layout.label(text='模式 ' + context.mode + ' · 阶段 ' + stage(context))
 
 
 class C94NAV_PT_Tools(bpy.types.Panel):
@@ -293,22 +297,39 @@ def route_panels(modules):
             saved = {key: cls.__dict__.get(key) for key in ('bl_category', 'bl_parent_id', 'bl_label', 'bl_order', 'bl_options', 'poll')}
             _ROUTED.append((cls, saved))
             destination, minimum, title = route
+            destination = getattr(cls, 'workflow_stage', destination)
+            title = getattr(cls, 'workflow_title', title)
             original = saved['poll']
+            if _PRESENTATION is not None:
+                destination, title = _PRESENTATION.route(short, destination, title)
+                cls.bl_category = _PRESENTATION.THEME.tab_label
+                cls.bl_parent_id = C94NAV_PT_Workspace.bl_idname
+                cls.bl_options = {'DEFAULT_CLOSED'}
+            else:
+                cls.bl_category = '角色工作台'
+                cls.bl_parent_id = C94NAV_PT_Tools.bl_idname
+                cls.bl_options = {'DEFAULT_CLOSED'} if minimum else set()
             cls.poll = classmethod(_make_poll(destination, minimum, original, short))
-            cls.bl_category = '角色工作台'
-            cls.bl_parent_id = C94NAV_PT_Tools.bl_idname
             cls.bl_label = title
             cls.bl_order = list(ROUTES).index(short)
-            cls.bl_options = {'DEFAULT_CLOSED'} if minimum else set()
 
 
 def _make_poll(destination, minimum, original, module):
     # Blender RNA requires exactly cls/context, including for wrapped methods.
     def routed_poll(panel_cls, context):
         opts = options(context)
-        if opts is None or stage(context) != destination or LEVEL[opts.level] < minimum:
+        if opts is None:
+            return False
+        if _PRESENTATION is not None:
+            if not _PRESENTATION.visible(opts, destination):
+                return False
+        elif stage(context) != destination or LEVEL[opts.level] < minimum:
             return False
         if current_target(context)[1]:
+            return False
+        rig = current_target(context)[0]
+        if rig and rig.get('rigging_modular_v1') and module not in {
+                'modular_ui', 'skinning_policy_ui', 'local_skinning_ui', 'native_maintenance_ui'}:
             return False
         sources = {'retarget_ui': 'BODY', 'retarget_job_ui': 'BODY',
                    'retarget_mmd_ui': 'MMD', 'retarget_mmd_import_ui': 'MMD',
@@ -322,7 +343,8 @@ def _make_poll(destination, minimum, original, module):
     return routed_poll
 
 
-def register(stage_ids=None):
+def register(stage_ids=None, *, presentation=None):
+    global _PRESENTATION
     if _REGISTERED or hasattr(bpy.types.Scene, OPTIONS):
         raise RuntimeError('角色工作台已由其他实例注册')
     chosen = tuple(row for row in STAGES if stage_ids is None or row[0] in stage_ids)
@@ -330,16 +352,30 @@ def register(stage_ids=None):
         raise ValueError('工作台必须包含自动与至少一个明确阶段')
     _AVAILABLE_STAGES.update(row[0] for row in chosen)
     C94NAV_Options.__annotations__['stage'] = EnumProperty(name='制作阶段', items=chosen, default='AUTO')
+    _PRESENTATION = presentation
+    panels = (C94NAV_PT_Workspace, C94NAV_PT_Tools)
+    if presentation is not None:
+        C94NAV_Options.__annotations__.update(presentation.options_properties())
+        C94NAV_PT_Workspace.bl_category = presentation.THEME.tab_label
+        C94NAV_PT_Workspace.bl_label = ''
+        C94NAV_PT_Workspace.bl_options = {'HIDE_HEADER'}
+        panels = (C94NAV_PT_Workspace,)
     try:
-        for cls in (C94NAV_Options, C94NAV_OT_Activate, C94NAV_PT_Workspace, C94NAV_PT_Tools):
+        for cls in (C94NAV_Options, C94NAV_OT_Activate, *panels):
             bpy.utils.register_class(cls); _REGISTERED.append(cls)
         setattr(bpy.types.Scene, OPTIONS, PointerProperty(type=C94NAV_Options))
+        if presentation is not None:
+            presentation.register()
     except Exception:
         unregister()
         raise
 
 
 def unregister():
+    global _PRESENTATION
+    presentation = _PRESENTATION
+    if presentation is not None:
+        presentation.unregister()
     _UI_MODULES.clear()
     _AVAILABLE_STAGES.clear()
     for cls, saved in reversed(_ROUTED):
@@ -357,3 +393,10 @@ def unregister():
         if getattr(cls, 'is_registered', False):
             bpy.utils.unregister_class(cls)
     _REGISTERED.clear()
+    if presentation is not None:
+        for name in presentation.options_properties():
+            C94NAV_Options.__annotations__.pop(name, None)
+        C94NAV_PT_Workspace.bl_category = '角色工作台'
+        C94NAV_PT_Workspace.bl_label = '角色工作台'
+        C94NAV_PT_Workspace.bl_options = set()
+        _PRESENTATION = None

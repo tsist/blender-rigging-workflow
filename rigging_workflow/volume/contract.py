@@ -49,13 +49,16 @@ def normalize(meshes,bones,settings):
     require(isinstance(settings,dict),'INVALID_INPUT','settings must be an explicit object')
     memory_bytes=finite(settings.get('max_memory_mb',512),'max_memory_mb',1,32768)*1048576
     allowed={'cell_size','cells_longest','mesh_mode','partitions','max_cells','max_memory_mb','max_iterations','tolerance',
-        'seed_radius_cells','max_seed_projection_cells','sample_radius_cells','require_all_bones_seeded',
-        'max_seconds','min_component_cells','max_ray_hits','return_domain','neighbor_count'}
+        'seed_radius_cells','max_seed_projection_cells','seed_overrides','sample_radius_cells','max_sample_entry_cells','require_all_bones_seeded',
+        'max_seconds','min_component_cells','max_ray_hits','return_domain','neighbor_count','compute_backend'}
     require(not set(settings)-allowed,'INVALID_INPUT','Unknown volume settings: '+repr(sorted(set(settings)-allowed)))
     require(not ('cell_size'in settings and 'cells_longest'in settings),'INVALID_INPUT','Choose cell_size or cells_longest')
     require(settings.get('mesh_mode','independent')=='independent','UNSUPPORTED','Only explicit independent mesh partitions are implemented; union is not silently approximated')
     neighbor_count=settings.get('neighbor_count',6)
     require(type(neighbor_count)is int and neighbor_count in (6,26),'INVALID_INPUT','neighbor_count must be the integer 6 or 26')
+    backend=settings.get('compute_backend','AUTO')
+    require(isinstance(backend,str) and backend in ('AUTO','CPU','CUDA'),'INVALID_INPUT',
+            'compute_backend must be AUTO, CPU or CUDA')
     clean=[]
     for entry in meshes:
         require(isinstance(entry,dict) and set(entry)=={'id','vertices','triangles'},'INVALID_INPUT','Mesh fields must be id/vertices/triangles')
@@ -82,6 +85,7 @@ def normalize(meshes,bones,settings):
     require(len({b['name'] for b in bone_rows})==len(bone_rows),'INVALID_INPUT','Distinct bone names required')
     config={
         'neighbor_count':neighbor_count,
+        'compute_backend':backend,
         'cells_longest':integer(settings.get('cells_longest',32),'cells_longest',4,512),
         'cell_size':finite(settings['cell_size'],'cell_size',1e-12,1e12) if 'cell_size'in settings else None,
         'max_cells':integer(settings.get('max_cells',250000),'max_cells',8,2000000),
@@ -91,12 +95,26 @@ def normalize(meshes,bones,settings):
         'seed_radius_cells':finite(settings.get('seed_radius_cells',1.25),'seed_radius_cells',.25,4),
         'max_seed_projection_cells':finite(settings.get('max_seed_projection_cells',1.25),'max_seed_projection_cells',0,4),
         'sample_radius_cells':finite(settings.get('sample_radius_cells',2),'sample_radius_cells',.5,4),
+        'max_sample_entry_cells':finite(settings.get('max_sample_entry_cells',0),'max_sample_entry_cells',0,1),
         'max_seconds':finite(settings.get('max_seconds',60),'max_seconds',.01,3600),
         'min_component_cells':integer(settings.get('min_component_cells',8),'min_component_cells',1,4096),
         'max_ray_hits':integer(settings.get('max_ray_hits',1024),'max_ray_hits',8,16384),
         'require_all_bones_seeded':settings.get('require_all_bones_seeded',True),
         'return_domain':settings.get('return_domain',False)}
     require(type(config['require_all_bones_seeded'])is bool and type(config['return_domain'])is bool,'INVALID_INPUT','Boolean settings must be actual bool values')
+
+    seed_overrides=settings.get('seed_overrides',{})
+    require(isinstance(seed_overrides,dict),'INVALID_INPUT','seed_overrides must be an explicit bone-to-settings object')
+    all_bones={b['name'] for b in bone_rows}
+    config['seed_overrides']={}
+    for name,override in seed_overrides.items():
+        require(name in all_bones and isinstance(override,dict)
+                and set(override)=={'radius_cells','max_projection_cells'},
+                'INVALID_INPUT','Every seed override must name a requested bone and declare both bounds')
+        config['seed_overrides'][name]={
+            'radius_cells':finite(override['radius_cells'],'seed override radius_cells',.25,4),
+            'max_projection_cells':finite(override['max_projection_cells'],'seed override max_projection_cells',0,4),
+        }
     partitions=settings.get('partitions')
     if partitions is None:
         partitions=[{'mesh_id':m['id'],'bone_names':[b['name'] for b in bone_rows]} for m in clean]

@@ -202,8 +202,15 @@ def _pack(rig):
         # a Key may never be shared by a different Mesh outside this pack.
         if key and not {m for m in bpy.data.meshes if m.shape_keys == key} <= {o.data for o in objects}:
             raise ValueError('Maintenance ShapeKey has consumers outside this pack: ' + key.name)
+    collection = state['collection']
+    displays = _group_objects(state.get('display_collections', {}))
+    if any(not isinstance(display, bpy.types.Collection)
+           or collection.children.get(display.name) != display
+           or display.children or not set(display.objects) <= set(members)
+           for display in displays):
+        raise ValueError('Maintenance display collection ownership changed')
     return {'state': state, 'objects': objects, 'widgets': widgets,
-            'dependencies': dependencies, 'collection': state['collection']}
+            'dependencies': dependencies, 'collection': collection, 'display_collections': displays}
 
 
 def _driver_rows(owner):
@@ -482,7 +489,7 @@ def _members(values):
     return {'member_%06d' % i: value for i, value in enumerate(values)}
 
 
-def _clone(rig, objects, label, mapping, dependencies, owned):
+def _clone(rig, objects, label, mapping, dependencies, owned, display_collections=()):
     widgets = []
     for pb in rig.pose.bones:
         if pb.custom_shape and pb.custom_shape not in widgets and pb.custom_shape not in objects:
@@ -525,8 +532,20 @@ def _clone(rig, objects, label, mapping, dependencies, owned):
         owned.append(copied)
         copied.name = label + '__' + action.name
         idmap[action] = copied
+    for display in display_collections:
+        copied = display.copy()
+        owned.append(copied)
+        copied.name = label + '__' + display.name
+        for member in list(copied.objects):
+            copied.objects.unlink(member)
+            copied.objects.link(idmap[member])
+        collection.children.link(copied)
+        idmap[display] = copied
     for source, copied in list(idmap.items()):
         _remap(copied, idmap)
+        if isinstance(source, bpy.types.Object) and source.parent in idmap:
+            # Blender resets the inverse when RNA assigns the replacement parent.
+            copied.matrix_parent_inverse = source.matrix_parent_inverse.copy()
         # Rebinding an Action must preserve its exact layered slot, including NLA.
         old_ad, new_ad = getattr(source, 'animation_data', None), getattr(copied, 'animation_data', None)
         if old_ad and new_ad:
@@ -579,6 +598,8 @@ def _clone(rig, objects, label, mapping, dependencies, owned):
         'member_%06d' % i: obj.data for i, obj in enumerate(new_members) if obj.data}
     new_rig[STATE_KEY]['owned_keys'] = {
         'member_%06d' % i: obj.data.shape_keys for i, obj in enumerate(new_objects) if obj.data.shape_keys}
+    if display_collections:
+        new_rig[STATE_KEY]['display_collections'] = _members([idmap[display] for display in display_collections])
     source_state = rig.get(STATE_KEY)
     if source_state and 'action_checkpoints' in source_state:
         new_rig[STATE_KEY]['action_checkpoints'] = {
@@ -590,7 +611,7 @@ def _clone(rig, objects, label, mapping, dependencies, owned):
     return {'rig': new_rig, 'objects': new_objects, 'collection': collection, 'report': report}
 
 
-def clone(rig, objects, *, label, mapping, dependencies=()):
+def clone(rig, objects, *, label, mapping, dependencies=(), display_collections=()):
     """Create a separately owned maintenance pack from explicit local inputs."""
     objects = _input(rig, objects)
     label = _text(label, 'label')
@@ -600,10 +621,16 @@ def clone(rig, objects, *, label, mapping, dependencies=()):
         raise ValueError('Dependencies must be unique local Objects')
     for obj in dependencies:
         _local(obj)
+    displays = tuple(display_collections)
+    if any(not isinstance(display, bpy.types.Collection) or display.library or display.override_library
+           or display.children for display in displays) or len(set(displays)) != len(displays):
+        raise ValueError('Display dependencies must be explicit, unique and local flat Collections')
+    dependencies = tuple(dict.fromkeys(dependencies + tuple(
+        member for display in displays for member in display.objects)))
     owned = []
     with _context():
         try:
-            return _clone(rig, objects, label, mapping, dependencies, owned)
+            return _clone(rig, objects, label, mapping, dependencies, owned, displays)
         except BaseException:
             _cleanup(owned)
             raise
@@ -875,8 +902,144 @@ def _repair_plan(rig, pack, constraint_edits, bone_edits, weight_edits, acknowle
     return constraints, bones, weights
 
 
-def repair(rig, *, label, reason, constraint_edits=(), bone_edits=(), weight_edits=(), acknowledge_bone_change=False):
-    """Validate a bounded repair, clone a recovery candidate, then edit only it."""
+_REPAIR_KIND = 'native_maintenance.weight_repair'
+_REPAIR_OPERATION = 'native_maintenance.apply_repair'
+
+
+def _mesh_identity(mesh):
+    from array import array
+
+    digest = hashlib.sha256()
+    for pieces, field, width, typecode in (
+            (mesh.vertices, 'co', 3, 'f'),
+            (mesh.edges, 'vertices', 2, 'i'),
+            (mesh.loops, 'vertex_index', 1, 'i'),
+            (mesh.polygons, 'loop_start', 1, 'i'),
+            (mesh.polygons, 'loop_total', 1, 'i')):
+        digest.update(struct.pack('<Q', len(pieces)))
+        values = array(typecode, [0]) * (len(pieces) * width)
+        pieces.foreach_get(field, values)
+        digest.update(values.tobytes())
+    return digest.hexdigest()
+
+
+def _weight_scope(rig, pack, edits):
+    affected = {}
+    for edit in edits:
+        index = edit['object_index']
+        if index in affected:
+            continue
+        obj = pack['objects'][index]
+        if any(other != obj and other.type == 'MESH' and other.data == obj.data
+               for other in bpy.data.objects):
+            raise ValueError('维修写入网格必须由该对象单独消费：' + obj.name)
+        affected[index] = {
+            'object_index': index,
+            'object': obj.name,
+            'mesh': obj.data.name,
+            'geometry_sha256': _mesh_identity(obj.data),
+            'before_weights': _weights(obj),
+            'modifiers': [_native(modifier) for modifier in obj.modifiers],
+        }
+    return {
+        'pack_id': pack['state']['pack_id'],
+        'rig': rig.name,
+        'targets': [affected[index] for index in sorted(affected)],
+        'edits': edits,
+    }
+
+
+def repair(rig, *, label, reason, constraint_edits=(), bone_edits=(), weight_edits=(),
+           acknowledge_bone_change=False):
+    """Clone and edit constraints or rest bones without touching weights."""
+    if weight_edits:
+        raise ValueError('权重维修需先准备和保存候选，再在同一候选审核并采用')
+    return _prepare_repair(rig, label=label, reason=reason,
+                           constraint_edits=constraint_edits, bone_edits=bone_edits,
+                           weight_edits=(), acknowledge_bone_change=acknowledge_bone_change)
+
+
+def prepare_repair(rig, *, label, reason, weight_edits, constraint_edits=(), bone_edits=(),
+                   acknowledge_bone_change=False, control_family=None,
+                   control_sections=('body', 'arms', 'legs')):
+    """Save-ready weight-repair candidate. The returned rig is the review target."""
+    if not weight_edits:
+        raise ValueError('请提供明确的权重修改')
+    return _prepare_repair(rig, label=label, reason=reason,
+                           constraint_edits=constraint_edits, bone_edits=bone_edits,
+                           weight_edits=weight_edits,
+                           acknowledge_bone_change=acknowledge_bone_change,
+                           control_family=control_family, control_sections=control_sections)
+
+
+def repair_scope(scene, candidate_id):
+    from . import candidate_state
+
+    rig, record = candidate_state.resolve(scene, candidate_id, kind=_REPAIR_KIND)
+    pack = _pack(rig)
+    payload = record['payload']
+    scope = _weight_scope(rig, pack, payload['weights'])
+    if scope != payload['scope']:
+        raise ValueError('维修目标的拓扑、绑定或原权重已改变，须重新准备')
+    return scope
+
+
+def _group_value(obj, vertex_index, group_index):
+    return next((row.weight for row in obj.data.vertices[vertex_index].groups
+                 if row.group == group_index), None)
+
+
+def _set_group_value(group, vertex, value):
+    if value is None:
+        group.remove([vertex])
+    else:
+        group.add([vertex], value, 'REPLACE')
+
+
+def apply_repair(scene, candidate_id):
+    """Apply the exact reviewed weights on the already saved candidate rig."""
+    from . import candidate_state
+
+    rig, record = candidate_state.resolve(scene, candidate_id, kind=_REPAIR_KIND)
+    pack = _pack(rig)
+    payload = record['payload']
+    _constraints, _bones, edits = _repair_plan(rig, pack, (), (), payload['weights'], False)
+    scope = _weight_scope(rig, pack, edits)
+    if scope != payload['scope']:
+        raise ValueError('维修目标的拓扑、绑定或原权重已改变，须重新准备')
+    candidate_state.require_operation(rig, operation=_REPAIR_OPERATION, scope=scope)
+    changes = []
+    try:
+        for edit in edits:
+            obj = pack['objects'][edit['object_index']]
+            for name, values in edit['assignments'].items():
+                group = obj.vertex_groups[name]
+                for vertex, value in zip(edit['indices'], values):
+                    changes.append((group, vertex, _group_value(obj, vertex, group.index)))
+                    expected = struct.unpack('<f', struct.pack('<f', value))[0] if value else None
+                    _set_group_value(group, vertex, expected)
+                    if _group_value(obj, vertex, group.index) != expected:
+                        raise RuntimeError('Blender 未持久化批准的点权重')
+        bpy.context.view_layer.update()
+        report = inspect(rig, pack['objects'])
+        report.update(operation='repair', reason=payload['reason'],
+                      original_pack_id=payload['original_pack_id'],
+                      checkpoint_source_preserved=True,
+                      impact_before_writes=payload['impact'])
+    except BaseException:
+        for group, vertex, prior in reversed(changes):
+            _set_group_value(group, vertex, prior)
+        bpy.context.view_layer.update()
+        raise
+    candidate_state.discard(scene, candidate_id)
+    return {'rig': rig, 'objects': pack['objects'], 'collection': pack['collection'],
+            'report': report}
+
+
+def _prepare_repair(rig, *, label, reason, constraint_edits, bone_edits, weight_edits,
+                    acknowledge_bone_change, control_family=None,
+                    control_sections=('body', 'arms', 'legs')):
+    from . import candidate_state
     pack = _pack(rig)
     label, reason = _text(label, 'label'), _text(reason, 'reason')
     mapping = get_layout(rig)
@@ -884,7 +1047,8 @@ def repair(rig, *, label, reason, constraint_edits=(), bone_edits=(), weight_edi
     owned = []
     with _context():
         try:
-            result = _clone(rig, pack['objects'], label, mapping, pack['dependencies'], owned)
+            result = _clone(rig, pack['objects'], label, mapping, pack['dependencies'], owned,
+                            pack['display_collections'])
             candidate = result['rig']
             newpack = _pack(candidate)
             member_map = {rig: candidate}
@@ -910,14 +1074,11 @@ def repair(rig, *, label, reason, constraint_edits=(), bone_edits=(), weight_edi
                         if field in edit:
                             setattr(bone, field, edit[field])
                 bpy.ops.object.mode_set(mode='OBJECT')
-            for edit in weights:
-                obj = result['objects'][edit['object_index']]
-                for group, values in edit['assignments'].items():
-                    for index, value in zip(edit['indices'], values):
-                        if value == 0:
-                            obj.vertex_groups[group].remove([index])
-                        else:
-                            obj.vertex_groups[group].add([index], value, 'REPLACE')
+            if control_family is not None:
+                from . import control_layer
+
+                control_layer.build(candidate, family=control_family, sections=control_sections,
+                                    action_policy='remap', owned_ids=owned)
             candidate.update_tag()
             bpy.context.view_layer.update()
             candidate[STATE_KEY]['repair_reason'] = reason
@@ -927,6 +1088,14 @@ def repair(rig, *, label, reason, constraint_edits=(), bone_edits=(), weight_edi
                                     original_pack_id=pack['state']['pack_id'],
                                     checkpoint_source_preserved=True,
                                     impact_before_writes=_json_value({'constraints': constraints, 'bones': bones, 'weights': weights}))
+            if weights:
+                scope = _weight_scope(candidate, _pack(candidate), weights)
+                prepared = candidate_state.record(bpy.context.scene, candidate, kind=_REPAIR_KIND,
+                    payload={'weights': weights, 'scope': scope, 'reason': reason,
+                             'original_pack_id': pack['state']['pack_id'],
+                             'impact': result['report']['impact_before_writes']})
+                result['candidate'] = prepared
+                result['report'].update(operation='prepare_repair', review_required=True)
             return result
         except BaseException:
             current = bpy.context.view_layer.objects.active

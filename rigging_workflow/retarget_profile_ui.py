@@ -134,16 +134,17 @@ def _source_profile(source, mapping, source_fps=None):
     except (ValueError, TypeError):
         saved = None
     if isinstance(saved, dict) and saved.get("format") == "FBX":
+        proposal = source_api.propose_fbx_mapping(source)
         if mapping is None:
+            if proposal["missing"]:
+                raise ValueError("请确认映射：" + ", ".join(proposal["missing"]))
+            mapping = proposal["bones"]
+        if proposal["preset"] == "mixamo_names_candidate" and mapping == proposal["bones"]:
             return rp.from_mixamo(source, import_record=saved,
                                   source_fps=source_fps)
-        try:
-            mixamo_bones = source_api.mapping(source)["bones"]
-        except ValueError:
-            mixamo_bones = None
-        if mixamo_bones is not None and mapping == mixamo_bones:
-            return rp.from_mixamo(source, import_record=saved,
-                                  source_fps=source_fps)
+        checks = rp.validate_mapping(source, {"bones": mapping}, include_fingers=False)
+        if not checks["ok"]:
+            raise ValueError("；".join(checks["errors"]))
         return rp.from_fbx(source, mapping, import_record=saved,
                            source_fps=source_fps)
     if mapping is None:
@@ -153,28 +154,33 @@ def _source_profile(source, mapping, source_fps=None):
 
 class C94PROFILE_Options(bpy.types.PropertyGroup):
     source: PointerProperty(name="源骨架", type=bpy.types.Object, poll=_armature)
-    target: PointerProperty(name="C94目标", type=bpy.types.Object, poll=_armature)
-    profile_path: StringProperty(name="Profile JSON", subtype="FILE_PATH", default="")
+    target: PointerProperty(name="目标角色", type=bpy.types.Object, poll=_armature)
+    profile_path: StringProperty(name="来源配置 JSON", subtype="FILE_PATH", default="")
     profile_text_name: StringProperty(default="", options={"HIDDEN"})
-    profile_id: StringProperty(name="Profile ID", default="")
+    profile_id: StringProperty(name="来源配置 ID", default="")
     mapping_json: StringProperty(name="语义映射JSON", default="{}")
     tier: StringProperty(name="等级", default="")
     calibration_state: StringProperty(name="校准复用", default="")
     status: StringProperty(name="状态", default="")
     summary: StringProperty(name="摘要", default="")
-    candidate: PointerProperty(name="候选Action", type=bpy.types.Action)
+    candidate: PointerProperty(name="候选动作", type=bpy.types.Action)
     motion: EnumProperty(
         name="根运动",
         items=(("PRESERVE", "保留移动与转向", ""), ("IN_PLACE", "原地", "")),
         default="PRESERVE")
+    root_rotation: EnumProperty(
+        name="根骨旋转",
+        items=(("HEADING", "水平转向", "根骨随角色在地面上的朝向旋转"),
+               ("FULL", "三轴旋转", "由原根骨承接围绕骨盆的空翻与滚转")),
+        default="HEADING")
     sample_step: IntProperty(name="采样步长", min=1, max=60, default=12)
     range_start: IntProperty(name="起始帧（0=自动）", min=0, default=0)
     range_end: IntProperty(name="结束帧（0=自动）", min=0, default=0)
     override_fps: BoolProperty(name="覆盖源帧率", default=False)
     source_fps: FloatProperty(name="源帧率", min=0.01, max=1000.0, default=30.0)
     replace_existing: BoolProperty(
-        name="允许覆盖已有Profile", default=False,
-        description="导出的profile文件已存在时必须显式勾选；不会静默覆盖")
+        name="允许覆盖已有来源配置", default=False,
+        description="导出的来源配置文件已存在时必须显式勾选；不会静默覆盖")
 
 
 def _checked_write(profile, path, replace_existing):
@@ -215,15 +221,26 @@ class C94PROFILE_OT_import_source(bpy.types.Operator, ImportHelper):
             opts.profile_text_name = ""; opts.profile_id = ""
             opts.tier = ""; opts.calibration_state = ""; opts.status = ""
             opts.candidate = None
-            try:
-                proposal = (source_api.exact_cmu_mapping(opts.source)
-                            if suffix == ".bvh" else source_api.mapping(opts.source))
-            except ValueError:
-                proposal = None
+            if suffix == ".fbx":
+                proposal = source_api.propose_fbx_mapping(opts.source)
+            else:
+                try:
+                    proposal = source_api.exact_cmu_mapping(opts.source)
+                except ValueError:
+                    proposal = None
             opts.mapping_json = json.dumps(proposal["bones"] if proposal else {},
                                              ensure_ascii=False, sort_keys=True)
-            opts.summary = ("来源已导入；已识别映射，可导出Profile后校验"
-                            if proposal else "来源已导入；请加载已有Profile或填写语义映射后导出")
+            if suffix == ".fbx" and (proposal["missing"] or proposal["ambiguous"]):
+                review = dict.fromkeys(proposal["missing"], [])
+                review.update(proposal["ambiguous"])
+                labels = [semantic + ("（" + " / ".join(names) + "）" if names else "")
+                          for semantic, names in review.items()]
+                opts.summary = "请在语义映射中确认 " + "、".join(labels)
+            elif suffix == ".fbx" and proposal["root"]:
+                opts.summary = "已识别根骨 " + proposal["root"] + "，可导出并校验Profile"
+            else:
+                opts.summary = ("来源已导入；已识别映射，可导出Profile后校验"
+                                if proposal else "来源已导入；请加载已有Profile或填写语义映射后导出")
             return {"FINISHED"}
         except Exception as exc:
             self.report({"ERROR"}, str(exc))
@@ -232,7 +249,7 @@ class C94PROFILE_OT_import_source(bpy.types.Operator, ImportHelper):
 
 class C94PROFILE_OT_export(bpy.types.Operator):
     bl_idname = "c94_workflow.profile_export"
-    bl_label = "导出来源Profile"
+    bl_label = "导出来源配置"
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
@@ -260,7 +277,7 @@ class C94PROFILE_OT_export(bpy.types.Operator):
 
 class C94PROFILE_OT_load(bpy.types.Operator):
     bl_idname = "c94_workflow.profile_load"
-    bl_label = "加载Profile JSON"
+    bl_label = "加载来源配置 JSON"
     bl_options = {"REGISTER", "UNDO"}
 
     def execute(self, context):
@@ -280,7 +297,7 @@ class C94PROFILE_OT_load(bpy.types.Operator):
 
 class C94PROFILE_OT_validate(bpy.types.Operator):
     bl_idname = "c94_workflow.profile_validate"
-    bl_label = "校验Profile与复用状态"
+    bl_label = "校验来源配置与复用状态"
     bl_options = {"REGISTER"}
 
     def execute(self, context):
@@ -312,7 +329,7 @@ class C94PROFILE_OT_validate(bpy.types.Operator):
 
 class C94PROFILE_OT_convert(bpy.types.Operator):
     bl_idname = "c94_workflow.profile_convert"
-    bl_label = "按Profile生成候选"
+    bl_label = "按来源配置生成候选"
     bl_options = {"REGISTER"}
 
     def execute(self, context):
@@ -331,6 +348,7 @@ class C94PROFILE_OT_convert(bpy.types.Operator):
                     start=start, end=end, output_start=1,
                     source_fps=opts.source_fps if opts.override_fps else None,
                     motion=opts.motion, sample_step=opts.sample_step,
+                    root_rotation=opts.root_rotation,
                     progress=lambda phase, i, total: wm.progress_update(
                         (0 if phase == "SOURCE" else 50) + 50 * i / total))
             finally:
@@ -375,7 +393,7 @@ class C94PROFILE_OT_stop(bpy.types.Operator):
 
 class C94PROFILE_OT_remember(bpy.types.Operator):
     bl_idname = "c94_workflow.profile_remember"
-    bl_label = "将候选校准写回Profile"
+    bl_label = "将候选校准写回来源配置"
     bl_options = {"REGISTER"}
 
     def execute(self, context):
@@ -401,7 +419,7 @@ class C94PROFILE_OT_remember(bpy.types.Operator):
 
 class C94PROFILE_PT_panel(bpy.types.Panel):
     bl_idname = "C94PROFILE_PT_panel"
-    bl_label = "通用来源重定向Profile"
+    bl_label = "通用来源重定向来源配置"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "动画重定向"
@@ -427,6 +445,7 @@ class C94PROFILE_PT_panel(bpy.types.Panel):
         else:
             layout.label(text='未知骨名与映射可切换进阶配置')
         layout.prop(opts, "motion")
+        layout.prop(opts, "root_rotation")
         layout.prop(opts, "sample_step")
         layout.prop(opts, "range_start")
         layout.prop(opts, "range_end")
@@ -445,7 +464,7 @@ class C94PROFILE_PT_panel(bpy.types.Panel):
         layout.label(text=opts.summary[:72], icon="TEXT")
         if advanced:
             layout.label(text="纯JSON配置；不执行Python预设")
-            layout.label(text="REST朝向 / 片段起点 / 腿长比例")
+            layout.label(text="静置姿态朝向 / 片段起点 / 腿长比例")
         layout.label(text="仅使用选定动作；未合成来源NLA轨道")
 
 

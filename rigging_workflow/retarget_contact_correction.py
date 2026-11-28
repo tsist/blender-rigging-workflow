@@ -25,6 +25,7 @@ from . import pose_switching_leg as leg
 from . import retarget_contact_samples as samples
 from . import retarget_observed as observed
 from . import retarget_contact_anchors as anchors
+from .retarget_contact import Aligner
 
 META = 'c94_retarget_contact_correction_v1'
 VERSION = '0.1.0'
@@ -520,10 +521,73 @@ def reopen_for_review(target, action, *, graph_fingerprint):
     return plan
 
 
+def _checked_support_window(window, report, issue, measurement_mode, frames, mapping):
+    """Admit the declared touchdown only when the base report supports locking."""
+    require(measurement_mode == anchors.MODE and issue['kind'] == 'target_penetration'
+            and issue['region'] == 'heel', '联合试样需要显式脚跟骨锚点及穿透问题')
+    require(isinstance(window, dict) and set(window) <= {'touchdown_frame', 'tangent_release'},
+            '联合试样参数无效')
+    touchdown = window.get('touchdown_frame')
+    require(type(touchdown) is int and frames[0] <= touchdown < frames[-1]
+            and frames[0] - 1 in mapping, '需显式进入帧、着地帧及后续稳定支撑')
+    require(report['source']['root_motion']['mode'] == report['target']['root_motion']['mode'],
+            '源与目标根运动模式不同，不能自动锁定切向')
+    require(any(row['side'] == issue['side'] and row['region'] == issue['region']
+                and row['source_kind'] == 'planted' and row['classification'] == 'target_penetration'
+                and _has_tangent_drift(row, report['settings'])
+                and row['target_interval_s'][0] <= mapping[touchdown + 1] + 1e-8
+                and row['target_interval_s'][1] >= mapping[frames[-1]] - 1e-8
+                for row in report['comparison']['items']),
+            '检测报告未证实着地后稳定支撑及超过门槛的切向路径')
+    release = window.get('tangent_release')
+    if release is not None:
+        require(isinstance(release, dict) and set(release) == {'start', 'end', 'blend_frames'}
+                and all(type(v) is int for v in release.values()), '切向旁路需明确整数范围及过渡帧数')
+        start, end, ramp = (release[key] for key in ('start', 'end', 'blend_frames'))
+        require(ramp >= 1 and touchdown <= start - ramp < start <= end < end + ramp <= frames[-1],
+                '切向旁路及过渡须在已确认的支撑范围内')
+    return {'touchdown_frame': touchdown, 'tangent_release': dict(release) if release is not None else None}
+
+
+def _has_tangent_drift(row, settings):
+    path = row['target_path_length_star']
+    start, end = row['target_interval_s']
+    return path > settings['slip_eps'] or (end > start and path / (end - start) > settings['slip_rate'])
+
+
+def gait_support_window(report, issue, calibration, frames, *, tangent_release=None):
+    """Map a measured source support onset to an exact target contact frame."""
+    require(anchors.mode(calibration) == anchors.MODE and issue['kind'] == 'target_penetration'
+            and issue['region'] == 'heel' and issue['defect'],
+            '自动联合修正需已检测的脚跟穿透及显式骨锚校准')
+    mapping = dict(calibration['frame_time_pairs'])
+    align = Aligner(report['alignment'])
+    heel_support = [segment for segment in report['source']['segments']['support']
+                    if segment['side'] == issue['side'] and segment['region'] == 'heel'
+                    and segment['stable']]
+    starts = []
+    for segment in heel_support:
+        start = align.source_to_target(segment['time_start_s'])
+        end = align.source_to_target(segment['time_end_s'])
+        if start is not None and end is not None and end >= mapping[frames[-1]] - 1e-8:
+            starts.extend(frame for frame in frames[:-1] if abs(mapping[frame] - start) <= 1e-8)
+    require(len(starts) == 1, '找不到覆盖选段且与目标采样精确对应的着地帧；请逐问题审阅')
+    return _checked_support_window({'touchdown_frame': starts[0], 'tangent_release': tangent_release},
+                                   report, issue, anchors.MODE, frames, mapping)
+
+
+def _tangent_weight(frame, release):
+    if release is None:
+        return 1.0
+    distance = max(release['start'] - frame, frame - release['end'], 0)
+    factor = min(1.0, distance / release['blend_frames'])
+    return factor * factor * (3 - 2 * factor)
+
+
 def prepare_issue(target, detection_report, *, issue_id, frames, calibration,
                   graph_fingerprint, clearance_m=0.0, max_delta_m=0.05,
                   match_tolerance_m=0.001, solve_tolerance_m=0.0001,
-                  cancelled=None):
+                  cancelled=None, support_window=None):
     """Build one reviewable Action, preserving the currently bound base Action.
 
     A required host graph_fingerprint callback must cover the reviewed native
@@ -596,6 +660,11 @@ def prepare_issue(target, detection_report, *, issue_id, frames, calibration,
     target_interval = issue.get('evidence', {}).get('target_interval_s', [issue['time_start_s'], issue['time_end_s']])
     require(all(f in mapping and target_interval[0]-1e-8 <= mapping[f] <= target_interval[1]+1e-8 for f in frames),
             '选定帧域超出该问题明确的目标时间区间')
+    if support_window is not None:
+        support_window = _checked_support_window(support_window, detection_report, issue,
+                                                 measurement_mode, frames, mapping)
+        require(base.frame_range[0] <= frames[0] - 1 and frames[-1] <= base.frame_range[1],
+                '联合试样不得扩展基础动作时间')
     mesh = _prepare_measurement(scene,target,calibration)
     plan = Plan()
     plan.token = uuid.uuid4().hex
@@ -607,6 +676,8 @@ def prepare_issue(target, detection_report, *, issue_id, frames, calibration,
     plan.issue_id, plan.kind, plan.region, plan.frames = issue_id, issue['kind'], issue['region'], list(frames)
     plan.parameters = dict(clearance_m=clearance_m, max_delta_m=max_delta_m,
         match_tolerance_m=match_tolerance_m, solve_tolerance_m=solve_tolerance_m)
+    if support_window is not None:
+        plan.parameters['support_window'] = support_window
     initial = rt.snapshot(target)
     plan.base_mode_inputs = dict(initial['modes'])
     plan.status = 'needs_review'
@@ -619,7 +690,11 @@ def prepare_issue(target, detection_report, *, issue_id, frames, calibration,
     candidate = None
     unit = scene.unit_settings.scale_length
     require(math.isfinite(unit) and unit > 0, '场景米制单位无效')
-    frames_to_write = [frames[0]-1, *frames, frames[-1]+1]
+    boundary_keys = [frames[0]-1, frames[-1]+1]
+    if support_window is not None and boundary_keys[-1] > base.frame_range[1]:
+        boundary_keys.pop()
+    frames_to_write = [boundary_keys[0], *frames, *boundary_keys[1:]]
+    approach_clearance = None
     writes, measurements, anchor = {}, [], None
     spec = leg._spec(calibration['side'])
     mutable = [*spec['fk'], spec['main'], spec['pole'], spec['foot'], spec['toe_ik'], spec['heel_ik'], spec['toe']]
@@ -633,6 +708,10 @@ def prepare_issue(target, detection_report, *, issue_id, frames, calibration,
             before_channels = {n: pose._channels(target.pose.bones[n]) for n in mutable}
             old_mode = target.pose.bones['骨架设置'][spec['key']]
             baseline, minimum_before = _read_patch(plan)
+            if (support_window is not None and frame == boundary_keys[0]
+                    and frames[0] < support_window['touchdown_frame']):
+                approach_clearance = minimum_before
+                require(approach_clearance >= clearance_m / unit, '着地前的边界帧需要高于研究支撑面')
             anchor_before=anchors.read_points(scene,target,calibration['anchors']) if measurement_mode==anchors.MODE else None
             matched = None
             if frame in frames:
@@ -642,10 +721,24 @@ def prepare_issue(target, detection_report, *, issue_id, frames, calibration,
                     matched = leg.switch(target, side=calibration['side'], target='IK', max_error_meters=match_tolerance_m)
                 else:
                     matched = {'mode':'FK','status':'native_fk_rotation_inverse_no_switch'}
-                if anchor is None:
-                    anchor = baseline.copy()
                 normal = Vector(calibration['plane']['normal'])
-                if plan.kind == 'target_slip':
+                if support_window is not None:
+                    touchdown = support_window['touchdown_frame']
+                    target_clearance = clearance_m / unit
+                    if frame < touchdown:
+                        remaining = (mapping[touchdown] - mapping[frame]) / (
+                            mapping[touchdown] - mapping[boundary_keys[0]])
+                        target_clearance += (approach_clearance - target_clearance) * remaining ** 2
+                    delta = normal * (target_clearance - minimum_before)
+                    if frame >= touchdown:
+                        if anchor is None:
+                            anchor = baseline.copy()
+                        tangent = anchor - baseline
+                        tangent -= normal * tangent.dot(normal)
+                        delta += tangent * _tangent_weight(frame, support_window['tangent_release'])
+                elif plan.kind == 'target_slip':
+                    if anchor is None:
+                        anchor = baseline.copy()
                     delta = anchor - baseline
                     delta -= normal * delta.dot(normal)
                 else:
@@ -771,7 +864,7 @@ def prepare_issue(target, detection_report, *, issue_id, frames, calibration,
         plan.status = 'needs_review'
         plan.report = {'schema':'c94.contact.correction.v1','version':VERSION,'issue_ids':[issue_id],
             'kind':plan.kind,'side':calibration['side'],'region':plan.region,'frames':list(frames),
-            'boundary_keys':[frames[0]-1,frames[-1]+1],'parameters':plan.parameters,
+            'boundary_keys':boundary_keys,'parameters':plan.parameters,
             'review_state':'needs_review','applied':False,'measurements':measurements,
             'curve_changes':difference,'writes_weights':False,'writes_rest':False,'writes_constraints':False,
             'base_action':base.name,'base_action_fingerprint':original_hash,'slot_identifier':base_slot.identifier,

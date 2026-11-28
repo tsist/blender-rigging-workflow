@@ -137,7 +137,7 @@ def _restore_preview(controller):
 
 class C94FKR_OT_Prepare(bpy.types.Operator):
     bl_idname='c94_workflow.face_key_revision_prepare'
-    bl_label='准备独立Key修正草稿'
+    bl_label='准备独立形态键修正草稿'
     bl_options={'REGISTER','UNDO'}
     def execute(self,context):
         opts=getattr(context.scene,OPTIONS)
@@ -272,7 +272,7 @@ class C94FKR_OT_Commit(bpy.types.Operator):
 
 
 class C94FKR_PT_Revision(bpy.types.Panel):
-    bl_idname='C94FKR_PT_revision';bl_label='角色Key修正（保留原版）'
+    bl_idname='C94FKR_PT_revision';bl_label='角色形态键修正（保留原版）'
     bl_space_type='VIEW_3D';bl_region_type='UI';bl_category='面部';bl_order=4
     bl_options={'DEFAULT_CLOSED'}
     def draw(self,context):
@@ -289,8 +289,8 @@ class C94FKR_PT_Revision(bpy.types.Panel):
                 else:l.label(text='已提交：'+str(state['committed_hub']))
             except _ERRORS as exc:l.label(text=str(exc))
         if opts.message:l.label(text=opts.message)
-        l.label(text='只编辑目标Key坐标；Basis/UV/权重保持')
-        l.label(text='草稿可保存重开；提交前回到准备帧与KEY中立')
+        l.label(text='只编辑目标形态键坐标；Basis/UV/权重保持')
+        l.label(text='草稿可保存重开；提交前回到准备帧与形态键中立')
 
 
 _CLASSES=(C94FKR_Options,C94FKR_OT_Prepare,C94FKR_OT_Preview,C94FKR_OT_StopPreview,C94FKR_OT_Commit,C94FKR_PT_Revision)

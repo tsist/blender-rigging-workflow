@@ -72,7 +72,7 @@ class C94FPL_OT_Remove(bpy.types.Operator):
 class C94FPL_OT_Mix(bpy.types.Operator):
     bl_idname = 'c94_workflow.face_pose_mix'
     bl_label = '混合到当前骨控'
-    bl_description = '从中立按A、B顺序混合骨输入；不直接叠加Key，不自动创建Key'
+    bl_description = '从中立按A、B顺序混合骨输入；不直接叠加形态键，不自动创建形态键'
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
@@ -144,8 +144,8 @@ class C94FPL_PT_Library(bpy.types.Panel):
         row = layout.row()
         row.enabled = report['has_previous']
         row.operator('c94_workflow.face_pose_restore')
-        layout.label(text='属性与Key保持中立；混合顺序为A→B')
-        layout.label(text='当前结果用姿态→Key入口整姿态采样')
+        layout.label(text='属性与形态键保持中立；混合顺序为A→B')
+        layout.label(text='当前结果用姿态→形态键入口整姿态采样')
         if options.message:
             layout.label(text=options.message)
 

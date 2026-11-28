@@ -2,12 +2,16 @@
 """Manual chest/glute elastic workflow; the shared core owns RAM clips.
 
 Draw reads the UI's last summary and native rig properties only. It never
-captures, validates a source signature, inspects a rig or evaluates a session.
+captures, validates a source signature or evaluates a session.
 """
+import json
+
 import bpy
 from bpy.props import (BoolProperty, EnumProperty, FloatProperty,
                        FloatVectorProperty, IntProperty, PointerProperty,
                        StringProperty)
+
+from . import elastic, secondary_dynamics
 
 OPTIONS = 'c94_elastic_options_v1'
 _REGISTERED = []
@@ -262,16 +266,17 @@ class C94ELASTIC_PT_Elastic(bpy.types.Panel):
         row.operator('c94_workflow.elastic_action', text='安装弹性模块').action = 'INSTALL'
         row.operator('c94_workflow.elastic_action', text='读取/刷新').action = 'READ'
         rig = options.rig
-        settings = rig.pose.bones.get('骨架设置') if rig and rig.type == 'ARMATURE' else None
+        settings, groups = secondary_dynamics.panel_controls(rig, elastic.STATE_KEY)
         if settings is not None:
             native = layout.box()
             native.label(text='原生组开关与混合（烘焙后仍可用）')
-            for _name, enabled, mix in _GROUPS.values():
+            for group in groups.values():
+                enabled, mix = group.get('property_enabled'), group.get('property_mix')
                 row = native.row(align=True)
-                if enabled in settings:
-                    row.prop(settings, '["' + enabled + '"]', text=enabled)
-                if mix in settings:
-                    row.prop(settings, '["' + mix + '"]', text=mix, slider=True)
+                if enabled and enabled in settings:
+                    row.prop(settings, '[' + json.dumps(enabled, ensure_ascii=False) + ']', text=enabled)
+                if mix and mix in settings:
+                    row.prop(settings, '[' + json.dumps(mix, ensure_ascii=False) + ']', text=mix, slider=True)
         form = layout.box()
         form.label(text='选择预设并应用到当前组')
         form.prop(options, 'preset')

@@ -34,6 +34,7 @@ class C94REWORK_Options(bpy.types.PropertyGroup):
     template_file:StringProperty(name='原模板库',subtype='FILE_PATH',update=_changed)
     label:StringProperty(name='独立新角色名',default='作者返工候选',update=_changed)
     objects_json:StringProperty(options={'HIDDEN'},update=_changed)
+    candidate_id:StringProperty(name='保存的返工候选 ID')
     impact:StringProperty(options={'SKIP_SAVE'})
     summary:StringProperty(default='捕获明确的生产Mesh/Key成员，再准备影响计划',options={'SKIP_SAVE'})
 
@@ -56,6 +57,7 @@ class C94REWORK_OT_Action(bpy.types.Operator):
                 options.summary='已捕获%d个明确成员；一个P1组的皮肤/附件须全部纳入'%len(objects)
             elif self.action=='PREPARE':
                 _PLAN=None
+                options.impact=''
                 rows=json.loads(options.objects_json or '[]');objects=[]
                 for row in rows:
                     obj=context.scene.objects.get(row['name'])
@@ -68,44 +70,67 @@ class C94REWORK_OT_Action(bpy.types.Operator):
                 options.impact=json.dumps(_PLAN.preview(),ensure_ascii=False)
                 options.summary='影响计划已准备；候选效果待评估，原作者成果保留'
             elif self.action=='EXECUTE':
-                if _PLAN is None or _PLAN.scene!=context.scene:raise ValueError('没有本进程当前场景的live返工计划；磁盘报告不恢复提交权')
-                current=module_configuration.read(context.scene)
-                if current is None or current['id']!=_PLAN.configuration['id']:
-                    _PLAN=None
-                    raise ValueError('当前Scene模块配置选择已改变，请重新准备返工计划')
-                result=_PLAN.execute();options.impact=json.dumps(result['report'],ensure_ascii=False)
-                options.summary='已生成独立返工候选：'+result['rig'].name+'；查看未迁移/重采项'
-                _PLAN=None
+                raise ValueError('旧整步返工入口已停用；先生成候选骨架，保存并审核范围后再采用')
+            elif self.action=='PREPARE_CANDIDATE':
+                if _PLAN is None or _PLAN.scene != context.scene:
+                    raise ValueError('先准备当前场景的影响计划')
+                current = module_configuration.read(context.scene)
+                if current is None or current['id'] != _PLAN.configuration['id']:
+                    raise ValueError('当前模块配置选择已改变，先重新准备影响计划')
+                output = _PLAN.prepare_candidate()
+                options.candidate_id = output['candidate_id']
+                options.impact = json.dumps(output['report'], ensure_ascii=False)
+                options.summary = '已生成无权重最终候选；保存后按实际迁权范围双审'
+                _PLAN = None
+            elif self.action=='INSPECT_CANDIDATE':
+                from . import candidate_state
+                _, rig, _, scope, payload, _, _ = core.inspect_candidate(context.scene, options.candidate_id)
+                options.impact = json.dumps(payload['report'], ensure_ascii=False)
+                options.summary = '待审 ' + rig.name + ' · ' + candidate_state.scope_digest(scope)
+            elif self.action=='APPLY_CANDIDATE':
+                output = core.apply_candidate(context.scene, options.candidate_id)
+                options.impact = json.dumps(output['report'], ensure_ascii=False)
+                options.summary = '已创建独立返工副本：' + output['rig'].name
             elif self.action=='CANCEL':
-                _PLAN=None;options.summary='已结束计划；原源与已生成候选保留'
+                if _PLAN is not None:
+                    if _PLAN.scene!=context.scene:
+                        raise ValueError('请切回返工计划所在场景')
+                    options.impact=''
+                    _PLAN=None
+                options.summary='已结束计划；原源与已生成候选保留'
             else:raise ValueError('未知返工操作')
             self.report({'INFO'},options.summary);return {'FINISHED'}
         except Exception as exc:
-            if self.action in {'PREPARE','EXECUTE'}:_PLAN=None
+            if self.action in {'PREPARE', 'PREPARE_CANDIDATE'}:
+                _PLAN = None
+                options.impact = ''
             options.summary='操作未完成：'+str(exc);self.report({'ERROR'},str(exc));return {'CANCELLED'}
 
 
 class C94REWORK_PT_Rework(bpy.types.Panel):
-    bl_label='已有C94作者返工'
+    bl_label='已有角色返工'
     bl_idname='C94REWORK_PT_rework'
     bl_space_type='VIEW_3D';bl_region_type='UI';bl_category='角色绑定';bl_order=9
     def draw(self,context):
         layout=self.layout;options=getattr(context.scene,OPTIONS)
         for field in ('source_rig','old_reference','reference','template_file','label'):layout.prop(options,field)
-        layout.operator('c94_workflow.author_rework',text='捕获所选生产Mesh/Key成员').action='CAPTURE'
+        layout.operator('c94_workflow.author_rework',text='捕获所选生产网格及形态键成员').action='CAPTURE'
         layout.operator('c94_workflow.author_rework',text='准备并查看返工影响').action='PREPARE'
         if options.impact:
             try:
                 impact=json.loads(options.impact);box=layout.box()
                 box.label(text='参考变化：%d骨；关闭形变模块：%d骨'%(len(impact['changed_reference_bones']),len(impact['closed_deform_semantics'])))
-                box.label(text='原Key库独立保留；变空间动作需重定向')
+                box.label(text='原形态键库独立保留；变空间动作需重定向')
                 box.label(text='受影响表情需重采；动态需重烘')
                 for name in impact['changed_reference_bones'][:8]:box.label(text='参考：'+name)
-                if impact.get('action'):box.label(text='Action：'+impact['action']['status'])
+                if impact.get('action'):box.label(text='动作：'+impact['action']['status'])
                 if impact.get('face_contract'):box.label(text='表情：'+impact['face_contract'])
             except (ValueError,KeyError,TypeError):layout.label(text='影响摘要无效，请重新准备',icon='ERROR')
         row=layout.row();row.enabled=_PLAN is not None and _PLAN.scene==context.scene
-        row.operator('c94_workflow.author_rework',text='生成独立返工候选').action='EXECUTE'
+        row.operator('c94_workflow.author_rework',text='生成无权重审核骨架').action='PREPARE_CANDIDATE'
+        layout.prop(options, 'candidate_id')
+        layout.operator('c94_workflow.author_rework', text='核对候选审核范围').action = 'INSPECT_CANDIDATE'
+        layout.operator('c94_workflow.author_rework', text='按双审范围创建迁权副本').action = 'APPLY_CANDIDATE'
         layout.operator('c94_workflow.author_rework',text='结束本次计划').action='CANCEL'
         layout.label(text=options.summary)
         layout.label(text='原源不覆盖；本功能不承诺任意旧动作无损')
